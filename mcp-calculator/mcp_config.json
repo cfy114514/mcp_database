@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "local-stdio-vectordb": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "vector_db"]
+    }
+  }
+}

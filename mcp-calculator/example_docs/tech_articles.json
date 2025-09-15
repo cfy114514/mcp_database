@@ -1,0 +1,22 @@
+[
+    {
+        "id": "python_basics_001",
+        "content": "Python 是一种解释型、高级编程语言。它的设计强调代码的可读性，它的语法允许程序员用更少的代码表达概念。",
+        "tags": ["Python", "编程基础"],
+        "metadata": {
+            "author": "张三",
+            "category": "编程语言",
+            "difficulty": "入门"
+        }
+    },
+    {
+        "id": "data_science_001",
+        "content": "数据科学是一个跨学科领域，它使用科学方法、过程、算法和系统从数据中提取知识和见解。",
+        "tags": ["数据科学", "机器学习", "统计"],
+        "metadata": {
+            "author": "李四",
+            "category": "数据分析",
+            "difficulty": "中级"
+        }
+    }
+]

@@ -1,0 +1,69 @@
+{
+    "name": "知识库向量服务",
+    "description": "为语音对话AI提供知识检索能力的向量数据库服务",
+    "services": [
+        {
+            "name": "knowledge-base",
+            "type": "python",
+            "command": "python3",
+            "args": ["knowledge_base_service.py"],
+            "cwd": "/home/xiaozhi/mcp_database/mcp-calculator",
+            "env": {
+                "EMBEDDING_API_KEY": "${EMBEDDING_API_KEY}",
+                "EMBEDDING_MODEL": "BAAI/bge-m3",
+                "KB_PORT": "8000"
+            },
+            "autostart": true,
+            "autorestart": true,
+            "stdout_logfile": "/home/xiaozhi/logs/knowledge-base.log",
+            "stderr_logfile": "/home/xiaozhi/logs/knowledge-base.error.log"
+        },
+        {
+            "name": "vector-mcp",
+            "type": "python",
+            "command": "python3",
+            "args": ["vector_db.py"],
+            "cwd": "/home/xiaozhi/mcp_database/mcp-calculator",
+            "env": {
+                "KB_HOST": "http://localhost:8000"
+            },
+            "autostart": true,
+            "autorestart": true,
+            "stdout_logfile": "/home/xiaozhi/logs/vector-mcp.log",
+            "stderr_logfile": "/home/xiaozhi/logs/vector-mcp.error.log",
+            "depends_on": ["knowledge-base"]
+        }
+    ],
+    "install": {
+        "steps": [
+            {
+                "name": "创建日志目录",
+                "command": "mkdir -p /home/xiaozhi/logs"
+            },
+            {
+                "name": "安装知识库服务依赖",
+                "command": "pip3 install -r requirements_kb.txt"
+            },
+            {
+                "name": "安装MCP服务依赖",
+                "command": "pip3 install -r requirements_mcp.txt"
+            }
+        ]
+    },
+    "uninstall": {
+        "steps": [
+            {
+                "name": "清理日志",
+                "command": "rm -rf /home/xiaozhi/logs/knowledge-base* /home/xiaozhi/logs/vector-mcp*"
+            }
+        ]
+    },
+    "variables": [
+        {
+            "name": "EMBEDDING_API_KEY",
+            "description": "Silicon Flow Embedding API密钥",
+            "required": true,
+            "type": "string"
+        }
+    ]
+}

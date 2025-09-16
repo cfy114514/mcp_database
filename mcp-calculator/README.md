@@ -1,8 +1,8 @@
 # MCP Sample Project | MCP 示例项目
 
-A powerful interface for extending AI capabilities through remote control, calculations, email operations, knowledge search, and more.
+A calculator service based on MCP (Model Context Protocol) that provides mathematical calculation capabilities including basic arithmetic, mathematical functions from the math module, and random number generation.
 
-一个强大的接口，用于通过远程控制、计算、邮件操作、知识搜索等方式扩展AI能力。
+一个基于 MCP（模型上下文协议）的计算器服务，提供包括基本运算、数学函数和随机数生成在内的数学计算功能。
 
 ## Overview | 概述
 
@@ -31,15 +31,26 @@ pip install -r requirements.txt
 export MCP_ENDPOINT=<your_mcp_endpoint>
 ```
 
-3. Run the calculator example | 运行计算器示例:
+3. Run the calculator service | 运行计算器服务:
+
+Direct execution | 直接运行:
+```bash
+python calculator.py
+```
+
+Or through MCP pipe | 或通过MCP管道:
 ```bash
 python mcp_pipe.py calculator.py
 ```
 
-Or run all configured servers | 或运行所有配置的服务:
+To run all configured services | 运行所有配置的服务:
 ```bash
 python mcp_pipe.py
 ```
+
+The calculator service will start and listen for calculation requests. Each request will be logged with the expression and its result.
+
+计算器服务将启动并监听计算请求。每个请求都会记录表达式和计算结果。
 
 *Requires `mcp_config.json` configuration file with server definitions (supports stdio/sse/http transport types)*
 
@@ -79,14 +90,44 @@ if __name__ == "__main__":
     mcp.run(transport="stdio")
 ```
 
-## Use Cases | 使用场景
+## Calculator Features | 计算器功能
 
-- Mathematical calculations | 数学计算
-- Email operations | 邮件操作
-- Knowledge base search | 知识库搜索
-- Remote device control | 远程设备控制
-- Data processing | 数据处理
-- Custom tool integration | 自定义工具集成
+The calculator service provides the following capabilities:
+
+计算器服务提供以下功能：
+
+### Basic Operations | 基本运算
+```python
+calculator("1 + 2 * 3")  # 基本四则运算
+calculator("10 % 3")     # 取模运算
+calculator("2 ** 3")     # 指数运算
+```
+
+### Mathematical Functions | 数学函数
+```python
+calculator("math.sin(math.pi/2)")  # 三角函数
+calculator("math.sqrt(16)")        # 平方根
+calculator("math.log(100, 10)")    # 对数运算
+calculator("math.e ** 2")          # 自然对数
+```
+
+### Random Numbers | 随机数生成
+```python
+calculator("random.random()")      # 0到1之间的随机数
+calculator("random.randint(1,10)") # 1到10之间的随机整数
+calculator("random.choice([1,2,3,4,5])")  # 随机选择
+```
+
+### Special Constants | 特殊常量
+```python
+calculator("math.pi")    # 圆周率
+calculator("math.e")     # 自然对数的底
+calculator("math.inf")   # 正无穷
+```
+
+All calculations are performed in a secure environment with access limited to math and random modules only.
+
+所有计算都在安全的环境中执行，只允许访问 math 和 random 模块。
 
 ## Requirements | 环境要求
 

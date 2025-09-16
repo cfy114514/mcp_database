@@ -1,0 +1,54 @@
+from knowledge_base_service import Document, VectorDatabase
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def add_test_documents():
+    db = VectorDatabase()
+    
+    # 测试文档数据
+    test_docs = [
+        {
+            "id": "criminal_law_1",
+            "content": "第二百三十四条【故意伤害罪】故意伤害他人身体的，处三年以下有期徒刑、拘役或者管制。犯前款罪，致人重伤的，处三年以上十年以下有期徒刑；致人死亡的，处十年以上有期徒刑、无期徒刑或者死刑。",
+            "tags": ["刑法", "人身伤害", "故意伤害"],
+            "metadata": {"source": "中华人民共和国刑法", "chapter": "第四章"}
+        },
+        {
+            "id": "criminal_law_2",
+            "content": "第二百六十四条【盗窃罪】盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金。",
+            "tags": ["刑法", "财产犯罪", "盗窃"],
+            "metadata": {"source": "中华人民共和国刑法", "chapter": "第五章"}
+        },
+        {
+            "id": "civil_law_1",
+            "content": "第一百零九条【民事责任的承担方式】侵害他人人身、财产权益的，应当依法承担民事责任。依法承担民事责任的方式主要有：（一）停止侵害；（二）排除妨碍；（三）消除危险；（四）返还财产；（五）恢复原状；（六）修理、重作、更换；（七）继续履行；（八）赔偿损失；（九）支付违约金；（十）消除影响、恢复名誉；（十一）赔礼道歉。",
+            "tags": ["民法", "民事责任", "侵权"],
+            "metadata": {"source": "中华人民共和国民法典", "chapter": "第一编"}
+        },
+        {
+            "id": "civil_law_2",
+            "content": "第一百八十六条【物权的概念】物权是权利人依法对特定的物享有直接支配和排他的权利，包括所有权、用益物权和担保物权。",
+            "tags": ["民法", "物权", "基本概念"],
+            "metadata": {"source": "中华人民共和国民法典", "chapter": "第二编"}
+        },
+        {
+            "id": "admin_law_1",
+            "content": "第二条【行政许可的概念和适用范围】本法所称行政许可，是指行政机关根据公民、法人或者其他组织的申请，经依法审查，准予其从事特定活动的行为。",
+            "tags": ["行政法", "行政许可", "基本概念"],
+            "metadata": {"source": "中华人民共和国行政许可法", "chapter": "第一章"}
+        }
+    ]
+    
+    # 添加文档到数据库
+    for doc_data in test_docs:
+        doc = Document(**doc_data)
+        success = db.add_document(doc)
+        if success:
+            logger.info(f"成功添加文档: {doc.id}")
+        else:
+            logger.error(f"添加文档失败: {doc.id}")
+
+if __name__ == "__main__":
+    add_test_documents()

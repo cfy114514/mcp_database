@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from mcp.server.fastmcp import FastMCP
 import sys
 import logging

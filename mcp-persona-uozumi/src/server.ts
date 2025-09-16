@@ -20,8 +20,15 @@ const SAFETY_PATH = "personas_safety.md";
 
 const server = new Server(
   { name: "mcp-persona-uozumi", version: "0.1.0" },
-  { capabilities: { prompts: {}, resources: {} } }
+  { capabilities: { prompts: {}, resources: {}, tools: {} } }
 );
+
+// 设置工具列表处理器
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: []
+  };
+});
 
 // 设置资源处理器
 server.setRequestHandler(ListResourcesRequestSchema, async () => {

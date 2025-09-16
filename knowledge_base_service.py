@@ -77,7 +77,14 @@ class VectorDatabase:
         self.document_ids = []
         self.tag_index = {}
         
-        self.data_dir = Path("data")
+        # 使用项目根目录的 data 文件夹
+        # 通过查找 mcp_config.json 确定项目根目录
+        current_dir = Path(__file__).parent
+        while current_dir.parent != current_dir:  # 向上查找，直到到达根目录
+            if (current_dir / "mcp_config.json").exists():
+                break
+            current_dir = current_dir.parent
+        self.data_dir = current_dir / "data"
         self.data_dir.mkdir(exist_ok=True)
         self._load_data()
 

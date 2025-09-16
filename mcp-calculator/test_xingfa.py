@@ -103,8 +103,49 @@ def split_text_to_chunks(text, min_length=100, max_length=800):
     
     return final_chunks
 
+def extract_tags(content: str) -> list:
+    """从文档内容中提取标签"""
+    tags = ["刑法", "法律"]  # 基础标签
+    
+    # 提取章节信息
+    if "第一章" in content or "总则" in content:
+        tags.append("总则")
+    elif "分则" in content:
+        tags.append("分则")
+    
+    # 提取具体罪名
+    crime_keywords = {
+        "故意杀人": ["暴力犯罪", "故意杀人罪"],
+        "故意伤害": ["暴力犯罪", "故意伤害罪"],
+        "强奸": ["性犯罪", "强奸罪"],
+        "盗窃": ["财产犯罪", "盗窃罪"],
+        "诈骗": ["财产犯罪", "诈骗罪"],
+        "贪污": ["职务犯罪", "贪污罪"],
+        "渎职": ["职务犯罪", "渎职罪"],
+        "受贿": ["职务犯罪", "受贿罪"],
+    }
+    
+    for keyword, related_tags in crime_keywords.items():
+        if keyword in content:
+            tags.extend(related_tags)
+    
+    # 提取刑罚信息
+    if "死刑" in content:
+        tags.append("死刑")
+    if "无期徒刑" in content:
+        tags.append("无期徒刑")
+    if "有期徒刑" in content:
+        tags.append("有期徒刑")
+    if "拘役" in content:
+        tags.append("拘役")
+    if "罚金" in content:
+        tags.append("罚金")
+    
+    # 去重
+    return list(set(tags))
+
 def import_xingfa(db: VectorDatabase):
-    """导入行法文本到数据库"""
+    """导入刑法文本到数据库"""
     content = load_xingfa_content()
     if not content:
         return False
@@ -114,14 +155,16 @@ def import_xingfa(db: VectorDatabase):
 
     success_count = 0
     for i, chunk in enumerate(chunks, 1):
+        # 为每个文档提取特定的标签
+        tags = extract_tags(chunk)
         doc = Document(
             id=f"xingfa_{i:03d}",
             content=chunk,
-            tags=["行法", "法律"]
+            tags=tags
         )
         if db.add_document(doc):
             success_count += 1
-            logger.info(f"成功导入第 {i} 个文档片段（{len(chunk)} 字符）")
+            logger.info(f"成功导入第 {i} 个文档片段（{len(chunk)} 字符，标签：{tags}）")
         else:
             logger.error(f"导入第 {i} 个文档片段失败")
 

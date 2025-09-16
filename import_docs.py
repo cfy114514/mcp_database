@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from knowledge_base_service import VectorDatabase, Document
+from document_importer import DocumentImporter
 from pathlib import Path
 import logging
 import re
 import sys
+import argparse
 
 # 配置日志
 logging.basicConfig(
@@ -142,7 +144,7 @@ def extract_tags(content: str, law_type: str) -> list:
     # 去重
     return list(set(tags))
 
-def process_file(file_path: Path, db: VectorDatabase) -> bool:
+def process_file(file_path: Path, db: VectorDatabase, importer: DocumentImporter) -> bool:
     """处理单个文件"""
     try:
         # 读取文件内容
@@ -157,62 +159,81 @@ def process_file(file_path: Path, db: VectorDatabase) -> bool:
         law_type = extract_law_type(file_path.name)
         logger.info(f"处理文件: {file_path.name} (类型: {law_type})")
         
-        # 分割文本
-        chunks = split_text_to_chunks(content)
-        logger.info(f"文本已分割为 {len(chunks)} 个片段")
+        # 设置元数据
+        metadata = {
+            "source": str(file_path),
+            "law_type": law_type,
+            "filename": file_path.name,
+            "tags": [law_type, "法律"]  # 基础标签
+        }
         
-        # 导入每个片段
-        success_count = 0
-        for i, chunk in enumerate(chunks, 1):
-            # 生成文档ID：law_type_filename_number
-            doc_id = f"{law_type}_{file_path.stem}_{i:03d}"
-            tags = extract_tags(chunk, law_type)
-            
-            doc = Document(
-                id=doc_id,
-                content=chunk,
-                tags=tags
-            )
-            
-            if db.add_document(doc):
-                success_count += 1
-                logger.info(f"成功导入第 {i} 个文档片段（{len(chunk)} 字符，标签：{tags}）")
-            else:
-                logger.error(f"导入第 {i} 个文档片段失败")
+        # 使用改进的导入器导入文档
+        success = importer.import_document(
+            content=content,
+            metadata=metadata,
+            max_retries=3,
+            retry_delay=1.0
+        )
         
-        logger.info(f"文件 {file_path.name} 导入完成: {success_count}/{len(chunks)} 个片段成功")
-        return success_count > 0
+        if success:
+            logger.info(f"成功导入文件: {file_path.name}")
+        else:
+            logger.warning(f"部分内容导入失败: {file_path.name}")
+            
+        return success
     
     except Exception as e:
         logger.error(f"处理文件 {file_path.name} 时出错: {e}")
         return False
 
 def main():
-    # 初始化数据库
-    logger.info("初始化向量数据库...")
+    parser = argparse.ArgumentParser(description="批量导入文档到向量数据库")
+    parser.add_argument("--dir", type=str, default="origin", help="包含文档的目录路径")
+    parser.add_argument("--pattern", type=str, default="*.txt", help="文件匹配模式")
+    parser.add_argument("--chunk-size", type=int, default=300, help="文档分块大小")
+    parser.add_argument("--retries", type=int, default=3, help="失败重试次数")
+    parser.add_argument("--delay", type=float, default=1.0, help="重试延迟时间(秒)")
+    parser.add_argument("--reset", action="store_true", help="重置导入进度")
+    args = parser.parse_args()
+
+    # 初始化数据库和导入器
+    logger.info("初始化向量数据库和导入器...")
     db = VectorDatabase()
+    importer = DocumentImporter(db, max_chunk_size=args.chunk_size)
     
-    # 获取origin目录
-    origin_dir = Path("origin")
+    if args.reset:
+        importer.reset_progress()
+        logger.info("已重置导入进度")
+    
+    # 获取文档目录
+    origin_dir = Path(args.dir)
     if not origin_dir.exists():
-        logger.error("origin 目录不存在")
+        logger.error(f"目录不存在: {args.dir}")
         return False
     
     # 处理所有txt文件
-    txt_files = list(origin_dir.glob("*.txt"))
+    txt_files = list(origin_dir.glob(args.pattern))
     if not txt_files:
-        logger.warning("没有找到任何txt文件")
+        logger.warning(f"没有找到任何{args.pattern}文件")
         return False
     
-    logger.info(f"找到 {len(txt_files)} 个txt文件")
+    logger.info(f"找到 {len(txt_files)} 个文件")
     
     # 处理每个文件
     success_count = 0
     for file_path in txt_files:
-        if process_file(file_path, db):
+        if process_file(file_path, db, importer):
             success_count += 1
     
-    logger.info(f"导入完成: {success_count}/{len(txt_files)} 个文件成功")
+    # 打印最终统计信息
+    stats = importer.get_stats()
+    logger.info("\n导入统计：")
+    logger.info(f"总文档数：{stats['total_documents']}")
+    logger.info(f"成功导入：{stats['successful_imports']}")
+    logger.info(f"失败导入：{stats['failed_imports']}")
+    logger.info(f"重试次数：{stats['retried_chunks']}")
+    logger.info(f"成功率：{stats.get('success_rate', 0):.2f}%")
+    
     return success_count > 0
 
 if __name__ == "__main__":

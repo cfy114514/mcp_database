@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "uozumi-persona": {
+      "command": "node",
+      "args": ["dist/server.js"],
+      "cwd": "./mcp-persona-uozumi"
+    }
+  },
+  "autoInjectPrompts": [
+    {
+      "server": "uozumi-persona",
+      "prompt": "uozumi-system",
+      "args": { "user": "cfy114514", "char": "Uozumi" },
+      "when": "onSessionStart"
+    }
+  ]
+}

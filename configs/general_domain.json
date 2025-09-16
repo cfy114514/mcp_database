@@ -1,0 +1,40 @@
+{
+  "domain_config": {
+    "name": "通用文档系统",
+    "description": "通用文档处理配置",
+    "file_type_mapping": {
+      "tech": "技术文档",
+      "manual": "用户手册",
+      "guide": "指导文档",
+      "spec": "规格说明",
+      "report": "报告文档"
+    },
+    "default_type": "通用文档",
+    "keyword_mapping": {
+      "API": ["技术", "接口"],
+      "教程": ["学习", "指导"],
+      "配置": ["设置", "配置"],
+      "安装": ["部署", "安装"],
+      "错误": ["问题", "故障"],
+      "性能": ["优化", "性能"]
+    },
+    "specialized_keywords": {},
+    "chapter_keywords": {
+      "第一章": "概述",
+      "介绍": "介绍",
+      "总结": "总结"
+    },
+    "base_tags": ["文档"],
+    "document_patterns": {
+      "article_start": "^#+ .+|^\\d+\\. .+",
+      "article_content": "(.+?)(?=^#|^\\d+\\.|$)",
+      "chapter_pattern": "^#+ .+"
+    },
+    "chunking_config": {
+      "min_length": 100,
+      "max_length": 500,
+      "preserve_structure": false,
+      "structure_indicators": ["#", "##", "###", "-", "*"]
+    }
+  }
+}

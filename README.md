@@ -2,17 +2,27 @@
 
 这是一个基于向量数据库的智能文档检索系统，支持语义搜索和多维度标签过滤。系统使用 FastAPI 构建 RESTful API，并集成了 MCP 协议支持。通过向量 embeddings 实现高效的语义搜索，为文档检索提供智能化支持。
 
+## 🚀 最新更新
+
+### ✨ 领域解耦架构 (v2.0)
+- **通用化设计**: 不再局限于法律文档，支持任意领域
+- **配置驱动**: 通过JSON配置文件适配不同文档类型
+- **向后兼容**: 保留所有法律文档处理功能
+- **扩展性强**: 轻松添加新的文档领域
+
 ## 功能特点
 
-- 智能语义搜索
-- 多维度标签系统
-- 自动文档分割与标签提取
-- 批量导入支持
-- MCP协议集成
-- RESTful API支持
-- 持久化存储
-- 自动标准化处理
-- 数据管理工具
+- 🔍 智能语义搜索
+- 🏷️ 多维度标签系统
+- ⚡ 自动文档分割与标签提取
+- 📦 批量导入支持
+- 🔌 MCP协议集成
+- 🌐 RESTful API支持
+- 💾 持久化存储
+- 🎯 自动标准化处理
+- 🛠️ 数据管理工具
+- 🌍 **多领域支持** (新增)
+- ⚙️ **配置化定制** (新增)
 
 ## 技术栈
 
@@ -27,11 +37,22 @@
 
 ```
 mcp_database/
-├── data/                # 向量数据库文件
-│   ├── documents.json   # 文档数据
-│   └── vectors.npy      # 向量数据
-├── origin/             # 原始法律文本文件目录
-├── knowledge_base_service.py    # 核心服务实现
+├── data/                       # 向量数据库文件
+│   ├── documents.json         # 文档数据
+│   └── vectors.npy            # 向量数据
+├── configs/                   # 领域配置文件 (新增)
+│   ├── legal_domain.json     # 法律领域配置
+│   └── general_domain.json   # 通用领域配置
+├── origin/                    # 原始文档文件目录
+├── knowledge_base_service.py  # 核心服务实现
+├── knowledge_base_mcp.py      # MCP服务接口
+├── domain_processor.py        # 领域处理器 (新增)
+├── import_docs.py             # 通用导入工具 (重构)
+├── import_docs_legal.py       # 法律专用导入工具 (兼容)
+├── document_importer.py       # 文档导入器
+├── test_queries.py           # 查询测试工具
+├── reset_database.py         # 数据库重置工具
+└── requirements.txt          # 依赖包列表
 ├── knowledge_base_mcp.py        # MCP服务接口
 ├── import_docs.py              # 批量导入工具
 ├── test_queries.py            # 查询测试工具
@@ -259,3 +280,41 @@ results = db.search(
 - 实现了基于标签的预过滤
 - 支持批量处理文档
 - 异步处理API请求
+
+## 🎯 快速开始
+
+### 基础用法
+
+1. **法律文档导入** (向后兼容)
+```bash
+python import_docs.py --domain legal
+```
+
+2. **通用文档导入**
+```bash
+python import_docs.py --domain general
+```
+
+3. **自定义领域**
+```bash
+python import_docs.py --config configs/my_domain.json
+```
+
+### 配置文件示例
+
+```json
+{
+  "domain_config": {
+    "name": "技术文档系统",
+    "file_type_mapping": {
+      "api": "API文档",
+      "guide": "使用指南"
+    },
+    "keyword_mapping": {
+      "函数": ["编程", "API"],
+      "配置": ["设置", "配置"]
+    },
+    "base_tags": ["技术文档"]
+  }
+}
+```

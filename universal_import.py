@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""
-通用文档导入工具
-支持通过配置文件适配不同领域的文档处理需求
-
-使用示例：
-- 法律文档：python import_docs.py --domain legal
-- 通用文档：python import_docs.py --domain general  
-- 自定义配置：python import_docs.py --config configs/my_domain.json
-"""
 from knowledge_base_service import VectorDatabase, Document
 from document_importer import DocumentImporter
 from domain_processor import DomainProcessor, LegalDomainProcessor
@@ -21,32 +12,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("DocImporter")
-
-#!/usr/bin/env python3
-"""
-通用文档导入工具
-支持通过配置文件适配不同领域的文档处理需求
-
-使用示例：
-- 法律文档：python import_docs.py --domain legal
-- 通用文档：python import_docs.py --domain general  
-- 自定义配置：python import_docs.py --config configs/my_domain.json
-"""
-from knowledge_base_service import VectorDatabase, Document
-from document_importer import DocumentImporter
-from domain_processor import DomainProcessor, LegalDomainProcessor
-from pathlib import Path
-import logging
-import argparse
-import sys
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("DocImporter")
+logger = logging.getLogger("UniversalDocImporter")
 
 def process_file(file_path: Path, db: VectorDatabase, importer: DocumentImporter, 
                 processor: DomainProcessor) -> bool:
@@ -101,7 +67,7 @@ def main():
     parser.add_argument("--pattern", type=str, default="*.txt", help="文件匹配模式")
     parser.add_argument("--config", type=str, help="领域配置文件路径")
     parser.add_argument("--domain", type=str, choices=["legal", "general"], 
-                      help="预定义领域类型（legal=法律, general=通用）")
+                      help="预定义领域类型")
     parser.add_argument("--chunk-size", type=int, default=300, help="文档分块大小")
     parser.add_argument("--retries", type=int, default=3, help="失败重试次数")
     parser.add_argument("--delay", type=float, default=1.0, help="重试延迟时间(秒)")
@@ -111,17 +77,14 @@ def main():
     # 初始化领域处理器
     if args.domain == "legal":
         processor = LegalDomainProcessor()
-        logger.info("使用法律领域配置")
     elif args.config:
         processor = DomainProcessor(args.config)
-        logger.info(f"使用自定义配置: {args.config}")
     else:
         processor = DomainProcessor()  # 使用通用配置
-        logger.info("使用通用配置")
     
     # 显示领域信息
     domain_info = processor.get_domain_info()
-    logger.info(f"领域名称: {domain_info['name']}")
+    logger.info(f"使用领域配置: {domain_info['name']}")
     logger.info(f"支持的文档类型: {', '.join(domain_info['supported_types'])}")
 
     # 初始化数据库和导入器
@@ -130,9 +93,8 @@ def main():
     
     # 根据领域配置调整分块大小
     chunk_size = args.chunk_size
-    chunking_config = processor.config["domain_config"].get("chunking_config", {})
-    if "max_length" in chunking_config:
-        suggested_size = chunking_config["max_length"]
+    if hasattr(processor.config["domain_config"], "chunking_config"):
+        suggested_size = processor.config["domain_config"]["chunking_config"]["max_length"]
         if suggested_size < chunk_size:
             chunk_size = suggested_size
             logger.info(f"根据领域配置调整分块大小为: {chunk_size}")

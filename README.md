@@ -1,23 +1,41 @@
 # 向量数据库知识检索服务
 
-基于向量数据库的知识检索系统，支持语义相似度搜索和标签过滤。该服务使用 FastAPI 构建 RESTful API，通过向量embeddings实现高效的语义搜索。
+这是一个基于向量数据库的智能文档检索系统，支持语义搜索和多维度标签过滤。系统使用 FastAPI 构建 RESTful API，并集成了 MCP 协议支持。通过向量 embeddings 实现高效的语义搜索，为文档检索提供智能化支持。
 
 ## 功能特点
 
-- 语义相似度搜索
-- 标签过滤支持
-- 向量embedding生成
+- 智能语义搜索
+- 多维度标签系统
+- 自动文档分割与标签提取
+- 批量导入支持
+- MCP协议集成
+- RESTful API支持
 - 持久化存储
-- RESTful API接口
-- 多维度文档元数据
+- 自动标准化处理
+- 数据管理工具
 
 ## 技术栈
 
-- FastAPI
-- NumPy
-- Embedding API (BGE模型)
-- Uvicorn
-- Python-dotenv
+- FastAPI：Web框架
+- NumPy：向量运算
+- Embedding API (BGE模型)：文本向量化
+- MCP Server：协议支持
+- Python-dotenv：环境配置
+- Pydantic：数据验证
+
+## 目录结构
+
+```
+mcp_database/
+├── data/                # 向量数据库文件
+│   ├── documents.json   # 文档数据
+│   └── vectors.npy      # 向量数据
+├── origin/             # 原始法律文本文件目录
+├── knowledge_base_service.py    # 核心服务实现
+├── knowledge_base_mcp.py        # MCP服务接口
+├── import_docs.py              # 批量导入工具
+├── test_queries.py            # 查询测试工具
+└── requirements.txt           # 依赖包列表
 
 ## 安装
 
@@ -69,35 +87,132 @@ POST /search
 }
 ```
 
-## 数据存储
+## 数据管理
 
-服务会自动在 `data` 目录下创建并维护两个文件：
-- `vectors.npy`: 存储文档向量
-- `documents.json`: 存储文档元数据
+### 1. 数据导入
 
-## 启动服务
+将文本文件放入 `origin` 目录，然后运行：
+```bash
+python import_docs.py
+```
 
+### 2. 数据清除
+
+以下方法可以清除数据库：
+
+1. 直接删除数据：
+```bash
+rm -rf data/documents.json data/vectors.npy
+```
+
+2. 使用Python脚本清除：
+```python
+from pathlib import Path
+import shutil
+
+def clear_database():
+    data_dir = Path("data")
+    if data_dir.exists():
+        shutil.rmtree(data_dir)
+        data_dir.mkdir()
+        print("数据库已清空")
+```
+
+3. 通过API重置：
+```python
+from knowledge_base_service import VectorDatabase
+
+db = VectorDatabase()
+db.reset()  # 清空所有数据
+```
+
+### 3. 数据备份
+
+1. 手动备份：
+```bash
+cp -r data/ data_backup/
+```
+
+2. 自动备份（示例脚本）：
+```python
+import shutil
+from datetime import datetime
+from pathlib import Path
+
+def backup_database():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_dir = Path(f"backups/backup_{timestamp}")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    shutil.copytree("data", backup_dir / "data", dirs_exist_ok=True)
+    print(f"数据已备份到: {backup_dir}")
+```
+
+## 使用说明
+
+### 1. 导入数据
+
+将法律文本文件放入 `origin` 目录，然后运行：
+```bash
+python import_docs.py
+```
+
+文件要求：
+- UTF-8 编码的文本文件
+- 建议按主题或类别命名
+- 支持任意 .txt 文件
+
+### 2. 启动服务
+
+MCP服务：
+```bash
+python knowledge_base_mcp.py
+```
+
+HTTP API服务：
 ```bash
 python knowledge_base_service.py
 ```
 
-服务将在配置的端口（默认8000）上启动。
+### 3. 使用示例
 
-## 核心类说明
+搜索文档：
+```python
+# 简单搜索
+result = db.search(query="故意杀人罪的量刑标准", top_k=5)
+
+# 带标签过滤的搜索
+result = db.search(
+    query="盗窃罪",
+    tags=["刑法", "财产犯罪", "有期徒刑"],
+    top_k=5
+)
+```
+
+## 核心组件
 
 ### VectorDatabase
-
-负责向量数据库的核心功能：
-- 文档添加
+- 文档管理
 - 向量检索
-- 数据持久化
 - 标签索引
+- 数据持久化
 
-### EmbeddingAPI
+### MCP工具集
+- search_documents：语义搜索
+- add_document：添加文档
+- get_stats：统计信息
 
-处理文本向量化：
-- 调用外部Embedding API
-- 向量生成和转换
+### 导入工具
+- 自动文档分割
+- 智能标签提取
+- 批量处理支持
+
+## 性能优化
+
+- 文档分割：100-800字符
+- 保持法律条款完整性
+- 向量标准化
+- 多维度标签索引
 - 错误处理
 
 ## 使用示例

@@ -14,6 +14,8 @@ const read = (p: string) => fs.readFileSync(path.resolve(__dirname, "..", p), "u
 
 const PERSONA_PATH = "personas_uozumi.md";
 const SAFETY_PATH = "personas_safety.md";
+// 新增：世界书路径
+const WORLD_BOOK_PATH = "data/uozumi_worldbook.zh.json";
 
 const server = new Server(
   { name: "mcp-persona-uozumi", version: "0.1.0" },
@@ -61,6 +63,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {},
           required: []
         }
+      },
+      // 新增：世界书工具
+      {
+        name: "list_worldbook_entries",
+        description: "列出世界书条目（基本信息）",
+        inputSchema: { type: "object", properties: {}, required: [] }
+      },
+      {
+        name: "get_worldbook_entry",
+        description: "获取指定世界书条目（含分块）",
+        inputSchema: {
+          type: "object",
+          properties: { id: { type: "string", description: "条目ID" } },
+          required: ["id"]
+        }
+      },
+      {
+        name: "search_worldbook",
+        description: "按关键词在世界书中检索（基于字符串匹配）",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "检索关键词" },
+            top_k: { type: "number", description: "返回数量上限", default: 5 }
+          },
+          required: ["query"]
+        }
       }
     ]
   };
@@ -70,96 +99,116 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  // 帮助函数：读取世界书
+  const readWorldbook = () => {
+    try {
+      const raw = read(WORLD_BOOK_PATH);
+      return JSON.parse(raw) as { entries: any[] };
+    } catch (e) {
+      return null;
+    }
+  };
+
   switch (name) {
     case "get_uozumi_persona":
       try {
         const persona = read(PERSONA_PATH);
         return {
           content: [
-            {
-              type: "text",
-              text: `# Uozumi 角色人设\n\n${persona}`
-            }
+            { type: "text", text: `# Uozumi 角色人设\n\n${persona}` }
           ]
         };
       } catch (error) {
-        return {
-          content: [
-            {
-              type: "text", 
-              text: `错误：无法读取人设文件 - ${(error as Error).message}`
-            }
-          ],
-          isError: true
-        };
+        return { content: [{ type: "text", text: `错误：无法读取人设文件 - ${(error as Error).message}` }], isError: true };
       }
 
     case "get_uozumi_system_prompt":
       try {
         const safety = read(SAFETY_PATH);
         let persona = read(PERSONA_PATH);
-        
         const user = String(args?.user || "用户");
         const char = String(args?.char || "Uozumi");
-        
-        persona = persona.replaceAll("{{user}}", user);
-        persona = persona.replaceAll("{{char}}", char);
-        
+        persona = persona.replaceAll("{{user}}", user).replaceAll("{{char}}", char);
         const systemPrompt = [safety.trim(), "", persona.trim()].join("\n\n");
-        
         return {
           content: [
-            {
-              type: "text",
-              text: `# Uozumi 系统提示\n\n以下是完整的系统提示，可以直接复制到 AI 对话的系统消息中：\n\n---\n\n${systemPrompt}\n\n---\n\n参数替换结果：\n- {{user}} → ${user}\n- {{char}} → ${char}`
-            }
+            { type: "text", text: `# Uozumi 系统提示\n\n${systemPrompt}` }
           ]
         };
       } catch (error) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `错误：无法生成系统提示 - ${(error as Error).message}`
-            }
-          ],
-          isError: true
-        };
+        return { content: [{ type: "text", text: `错误：无法生成系统提示 - ${(error as Error).message}` }], isError: true };
       }
 
     case "get_safety_guidelines":
       try {
         const safety = read(SAFETY_PATH);
-        return {
-          content: [
-            {
-              type: "text",
-              text: `# 安全使用指南\n\n${safety}`
-            }
-          ]
-        };
+        return { content: [{ type: "text", text: `# 安全使用指南\n\n${safety}` }] };
       } catch (error) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `错误：无法读取安全指南 - ${(error as Error).message}`
-            }
-          ],
-          isError: true
-        };
+        return { content: [{ type: "text", text: `错误：无法读取安全指南 - ${(error as Error).message}` }], isError: true };
       }
 
-    default:
-      return {
-        content: [
-          {
-            type: "text",
-            text: `错误：未知工具 "${name}"`
+    // 新增：世界书相关工具实现
+    case "list_worldbook_entries": {
+      const wb = readWorldbook();
+      if (!wb || !Array.isArray(wb.entries)) {
+        return { content: [{ type: "text", text: `错误：无法读取世界书 ${WORLD_BOOK_PATH}` }], isError: true };
+      }
+      const summary = wb.entries.map((e: any) => ({
+        id: e.id,
+        keys: e.keys,
+        comment: e.comment,
+        tags: e.tags,
+        chunkCount: Array.isArray(e.chunks) ? e.chunks.length : 0
+      }));
+      return { content: [{ type: "text", text: JSON.stringify({ entries: summary }, null, 2) }] };
+    }
+
+    case "get_worldbook_entry": {
+      const wb = readWorldbook();
+      if (!wb || !Array.isArray(wb.entries)) {
+        return { content: [{ type: "text", text: `错误：无法读取世界书 ${WORLD_BOOK_PATH}` }], isError: true };
+      }
+      const id = String(args?.id || "");
+      const found = wb.entries.find((e: any) => e.id === id);
+      if (!found) {
+        return { content: [{ type: "text", text: `未找到条目：${id}` }], isError: true };
+      }
+      return { content: [{ type: "text", text: JSON.stringify(found, null, 2) }] };
+    }
+
+    case "search_worldbook": {
+      const wb = readWorldbook();
+      if (!wb || !Array.isArray(wb.entries)) {
+        return { content: [{ type: "text", text: `错误：无法读取世界书 ${WORLD_BOOK_PATH}` }], isError: true };
+      }
+      const query = String(args?.query || "").toLowerCase();
+      const topK = Math.max(1, Number(args?.top_k ?? 5));
+      const results: Array<{ score: number; entryId: string; chunkId?: string; text?: string }> = [];
+      for (const e of wb.entries) {
+        const keys = (e.keys || []).join(" ").toLowerCase();
+        const comment = String(e.comment || "").toLowerCase();
+        let entryScore = 0;
+        if (keys.includes(query)) entryScore += 2;
+        if (comment.includes(query)) entryScore += 1;
+        if (entryScore > 0) {
+          results.push({ score: entryScore, entryId: e.id });
+        }
+        if (Array.isArray(e.chunks)) {
+          for (const c of e.chunks) {
+            const txt = String(c.text || "").toLowerCase();
+            if (txt.includes(query)) {
+              results.push({ score: 3, entryId: e.id, chunkId: c.id, text: c.text });
+            }
           }
-        ],
-        isError: true
-      };
+        }
+      }
+      results.sort((a, b) => b.score - a.score);
+      const sliced = results.slice(0, topK);
+      return { content: [{ type: "text", text: JSON.stringify({ query, results: sliced }, null, 2) }] };
+    }
+
+    default:
+      return { content: [{ type: "text", text: `错误：未知工具 "${name}"` }], isError: true };
   }
 });
 

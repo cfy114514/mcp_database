@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/worldbook.schema.json",
+  "title": "Worldbook",
+  "type": "object",
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["key", "content"],
+        "properties": {
+          "key": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "keysecondary": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "comment": {"type": "string"},
+          "content": {"type": "string"},
+          "constant": {"type": "boolean"},
+          "vectorized": {"type": "boolean"},
+          "selective": {"type": "boolean"},
+          "selectiveLogic": {"type": "number"},
+          "addMemo": {"type": "boolean"},
+          "order": {"type": "number"},
+          "position": {"type": ["number", "string"]},
+          "disable": {"type": "boolean"},
+          "ignoreBudget": {"type": "boolean"},
+          "excludeRecursion": {"type": "boolean"},
+          "preventRecursion": {"type": "boolean"},
+          "matchPersonaDescription": {"type": "boolean"},
+          "matchCharacterDescription": {"type": "boolean"},
+          "matchCharacterPersonality": {"type": "boolean"},
+          "matchCharacterDepthPrompt": {"type": "boolean"},
+          "matchScenario": {"type": "boolean"},
+          "matchCreatorNotes": {"type": "boolean"},
+          "delayUntilRecursion": {"type": "boolean"},
+          "probability": {"type": "number"},
+          "useProbability": {"type": "boolean"},
+          "depth": {"type": "number"},
+          "group": {"type": "string"},
+          "groupOverride": {"type": "boolean"},
+          "groupWeight": {"type": "number"},
+          "scanDepth": {"type": ["number", "null"]},
+          "caseSensitive": {"type": ["boolean", "null"]},
+          "matchWholeWords": {"type": ["boolean", "null"]},
+          "useGroupScoring": {"type": "boolean"},
+          "automationId": {"type": "string"},
+          "role": {"type": ["number", "null"]},
+          "sticky": {"type": ["number", "null"]},
+          "cooldown": {"type": ["number", "null"]},
+          "delay": {"type": ["number", "null"]},
+          "triggers": {"type": "array", "items": {"type": "string"}},
+          "uid": {"type": "number"},
+          "displayIndex": {"type": "number"},
+          "extensions": {"type": "object"},
+          "characterFilter": {"type": "object"}
+        }
+      }
+    },
+    "originalData": {"type": "object"}
+  }
+}

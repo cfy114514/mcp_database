@@ -1,0 +1,20 @@
+{
+  "name": "mcp-persona-luoluo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP tools-only server for persona Luoluo",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "@types/node": "^22.5.4"
+  }
+}

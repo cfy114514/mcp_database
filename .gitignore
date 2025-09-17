@@ -1,0 +1,3 @@
+# Ignore local install/build files for Luoluo MCP persona
+mcp-persona-luoluo/node_modules/
+mcp-persona-luoluo/dist/

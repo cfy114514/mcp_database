@@ -395,20 +395,10 @@ def custom_memory_tool(user_id: str, query: str) -> Dict:
 ### 🧪 **测试和调试**
 ```bash
 # 运行完整测试套件
-python test_embedding_memory.py all
-
-# 运行特定测试类型
-python test_embedding_memory.py env          # 环境测试
-python test_embedding_memory.py api          # API配置测试
-python test_embedding_memory.py storage      # 存储功能测试
-python test_embedding_memory.py filter       # 过滤功能测试
-python test_embedding_memory.py integration  # 集成测试
-
-# 通过管理脚本运行测试
 python mcp_memory_manager.py test
 
 # 查看详细日志
-python test_embedding_memory.py all --verbose
+tail -f logs/knowledge_base_http.log
 
 # 性能测试
 python -c "

@@ -39,7 +39,7 @@ mcp = FastMCP("ContextAggregator")
 
 # 全局配置
 CONFIG = {
-    "kb_service_url": "http://localhost:8000",
+    "kb_service_url": "http://localhost:8000",  # 向量数据库工具使用8000端口
     "persona_services": {
         "uozumi": {
             "server_name": "persona-uozumi",

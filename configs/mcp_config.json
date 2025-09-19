@@ -39,9 +39,41 @@
       "restart": true,
       "restartDelay": 3000,
       "dependsOn": ["persona-uozumi", "knowledge-base"]
+    },
+    "embedding-context-aggregator": {
+      "command": "python",
+      "args": ["embedding_context_aggregator_mcp.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_SERVICE_URL": "http://localhost:8001"
+      },
+      "description": "基于Embedding的记忆库上下文聚合服务",
+      "capabilities": ["tools"],
+      "restart": true,
+      "restartDelay": 3000,
+      "dependsOn": ["persona-uozumi", "embedding-memory-http"]
     }
   },
   "httpServices": {
+    "embedding-memory-http": {
+      "command": "python", 
+      "args": ["knowledge_base_service.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_PORT": "8001"
+      },
+      "description": "记忆库 HTTP 服务，提供嵌入式记忆存储 REST API",
+      "port": 8001,
+      "healthCheck": {
+        "url": "http://localhost:8001/docs",
+        "interval": 30000,
+        "timeout": 5000
+      },
+      "restart": true,
+      "restartDelay": 5000
+    },
     "knowledge-base-http": {
       "command": "python",
       "args": ["knowledge_base_service.py"],

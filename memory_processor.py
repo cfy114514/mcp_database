@@ -64,10 +64,10 @@ class MemoryProcessor:
         self.llm_api_base = llm_api_base or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         self.llm_model = llm_model or os.getenv("LLM_MODEL", "gpt-3.5-turbo")
         
-        # 知识库服务配置 - 支持环境变量配置
+        # 知识库服务配置 - 明确为向量数据库使用8000端口
         if kb_service_url == "http://localhost:8000":  # 使用默认值时，检查环境变量
             kb_host = os.getenv("KB_HOST", "localhost")
-            kb_port = os.getenv("KB_PORT", "8001")  # 更新默认端口为8001
+            kb_port = os.getenv("KB_PORT", "8000")  # 向量数据库固定使用8000端口
             self.kb_service_url = f"http://{kb_host}:{kb_port}"
         else:
             self.kb_service_url = kb_service_url.rstrip('/')

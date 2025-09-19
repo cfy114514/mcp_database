@@ -18,7 +18,7 @@
       "cwd": "/root/mcp_database",
       "env": {
         "PYTHONPATH": "/root/mcp_database",
-        "KB_SERVICE_URL": "http://localhost:8000"
+        "KB_SERVICE_URL": "http://localhost:8001"
       },
       "description": "向量知识库 MCP 服务，提供文档搜索和存储功能",
       "capabilities": ["tools"],
@@ -28,11 +28,11 @@
     },
     "context-aggregator": {
       "command": "python3",
-      "args": ["context_aggregator_mcp.py"],
+      "args": ["embedding_context_aggregator_mcp.py"],
       "cwd": "/root/mcp_database",
       "env": {
         "PYTHONPATH": "/root/mcp_database",
-        "KB_SERVICE_URL": "http://localhost:8000"
+        "KB_SERVICE_URL": "http://localhost:8001"
       },
       "description": "上下文聚合服务，整合角色人设和用户记忆",
       "capabilities": ["tools"],
@@ -48,12 +48,12 @@
       "cwd": "/root/mcp_database",
       "env": {
         "PYTHONPATH": "/root/mcp_database",
-        "KB_PORT": "8000"
+        "KB_PORT": "8001"
       },
       "description": "知识库 HTTP 服务，提供向量数据库 REST API",
-      "port": 8000,
+      "port": 8001,
       "healthCheck": {
-        "url": "http://localhost:8000/docs",
+        "url": "http://localhost:8001/docs",
         "interval": 30000,
         "timeout": 5000
       },

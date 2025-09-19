@@ -1,52 +1,208 @@
-# MCP Database — 项目总览与部署指南
+# MCP Database — AI 记忆系统与角色人设平台
 
-本仓库包含多个子模块：角色 persona 的 MCP 接入点（Uozumi 与 Luoluo）、向量知识库（Knowledge Base）HTTP 服务与其 MCP 包装器、文档导入/分割/持久化工具以及若干运维与测试脚本。本 README 为统一首页，包含部署、启动、导入与测试步骤，以及关键脚本的使用说明。
+本项目是一个完整的 AI 记忆系统与角色人设平台，基于 MCP (Model Context Protocol) 架构构建。系统提供智能记忆存储、语义检索、上下文聚合和角色人设管理等核心功能，让 AI 拥有"记忆"用户信息的能力。
 
-目录概览（重要路径）
+## 🧠 核心功能
 
-- mcp-persona-uozumi/
-  - src/server.ts        — Uozumi MCP stdio 服务器（现已合并 Luoluo 工具）
-  - dist/server.js       — 编译后入口（用于在面板中启动）
-  - personas_uozumi.md   — Uozumi 人设
-  - personas_safety.md   — 安全规则
-  - data/uozumi_worldbook.zh.json — Uozumi 世界书
-- mcp-persona-luoluo/
-  - src/server.ts
-  - dist/server.js
-  - personas_luoluo.md
-  - data/luoluo_worldbook.zh.json
-- mcp-calculator/ 或 根目录
-  - knowledge_base_service.py — FastAPI 知识库 HTTP 服务（/search）
-  - vector_db.py             — MCP 工具包装（search_documents/add_document/get_stats）
-  - import_tool.py / import_docs.py — 文档导入器
-- 脚本与配置
-  - deploy.sh
-  - reset_database.py
-  - add_test_data.py / test_search.py
-  - studio.json (示例服务定义)
-  - mcp_config.json (旧版/示例)
-  - .env（环境变量）
+### 📚 **智能记忆系统**
+- **🔢 向量化存储**: 使用 BAAI/bge-large-zh-v1.5 模型生成 1024 维语义向量
+- **🏷️ 标签化索引**: 多维度标签分类，支持快速精确过滤
+- **🧠 LLM 记忆提取**: 自动从对话中提取重要信息并评估重要性
+- **🔒 用户数据隔离**: 基于 metadata 的完全数据隔离，支持多用户
+- **🎯 上下文聚合**: 智能构建包含记忆的增强提示
 
-先决条件
+### 👥 **角色人设管理**
+- **仓桥卯月 (Uozumi)**: 温柔细腻的角色人设
+- **络络 (Luoluo)**: 友善活泼的 AI 助手
+- **🛡️ 安全规范**: 内置安全指南和内容过滤
+- **🌍 世界观设定**: 丰富的角色背景和世界书
 
-- Node.js + npm / pnpm（用于 persona 服务的构建与运行）。
-- Python 3.8+（用于知识库与 MCP 包装器）。
-- 安装依赖：见各模块下的 requirements_*.txt 与 package.json。
-- 配置 EMBEDDING_API_KEY（向量 embedding 服务的 API key）。
+### 🔄 **记忆生命周期**
+```
+👤 用户对话 → 🧠 记忆提取 → 🔢 向量化存储 → 🔍 智能检索 → 🎯 上下文聚合 → 💬 增强对话
+```
 
-配置与环境（建议）
+## 📁 项目架构
 
-在仓库根创建 `.env`：
+### 🎯 **记忆系统核心**
+```
+memory_processor.py          — 记忆提取和处理核心
+context_aggregator_mcp.py    — 上下文聚合 MCP 服务
+knowledge_base_service.py    — 知识库 HTTP 服务 (FastAPI)
+knowledge_base_mcp.py        — 知识库 MCP 包装器
+```
 
-EMBEDDING_API_KEY=你的_api_key
-EMBEDDING_MODEL=BAAI/bge-m3
-KB_PORT=8000
+### 👥 **角色人设服务**
+```
+mcp-persona-uozumi/
+├── src/server.ts            — Uozumi & Luoluo MCP 服务器
+├── dist/server.js           — 编译后入口
+├── personas_uozumi.md       — Uozumi 人设
+├── personas_luoluo.md       — Luoluo 人设
+├── personas_safety.md       — 安全规则
+└── data/
+    ├── uozumi_worldbook.zh.json — Uozumi 世界书
+    └── luoluo_worldbook.zh.json — Luoluo 世界书
+```
 
-确保主机可访问 embedding 服务并允许 outbound HTTPS（如使用第三方 embedding API）。
+### 🔧 **配置与部署**
+```
+configs/
+├── mcp_config.json          — MCP 服务配置
+├── mcp_config.dev.json      — 开发环境配置
+deploy_memory_system.py      — 自动化部署脚本
+start_memory_system.bat      — Windows 快速启动脚本
+.env                         — 环境变量配置
+```
 
-模块部署与启动
+### 📚 **文档与测试**
+```
+docs/
+├── MEMORY_FLOW_GUIDE.md     — 记忆流程详解
+├── MCP_TOOLS_LIST.md        — MCP 工具列表
+├── DEPLOYMENT.md            — 部署指南
+└── MCP_ARCHITECTURE.md      — 系统架构文档
 
-1) 向量知识库 HTTP 服务（Knowledge Base）——（提供 /search REST API）
+tests/
+├── test_integration.py      — 集成测试
+├── demo_memory_system.py    — 端到端演示
+└── test_*.py               — 各模块测试
+```
+
+## ⚙️ 环境配置
+
+### 先决条件
+- **Node.js 18+** + npm/pnpm (角色人设服务)
+- **Python 3.8+** (记忆系统和知识库)
+- **向量嵌入 API** (推荐硅基流动 SiliconFlow)
+
+### 环境变量配置
+
+在项目根目录创建 `.env` 文件：
+
+```properties
+# 向量嵌入 API 配置 (硅基流动)
+EMBEDDING_API_KEY=your_embedding_api_key
+EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+EMBEDDING_API_URL=https://api.siliconflow.cn/v1/embeddings
+
+# 知识库服务配置
+KB_PORT=8001
+KB_HOST=localhost
+
+# LLM API 配置 (可选，用于自动记忆提取)
+LLM_API_KEY=your_llm_api_key
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-3.5-turbo
+
+# 记忆处理配置
+MEMORY_IMPORTANCE_THRESHOLD=3.0
+MAX_MEMORY_CONTEXT=5
+
+# 调试配置
+DEBUG=true
+LOG_LEVEL=INFO
+```
+
+## 🚀 快速部署
+
+### 方式一：自动化部署 (推荐)
+
+```bash
+# 1. 安装 Python 依赖
+pip install -r requirements.txt
+
+# 2. 构建角色人设服务
+cd mcp-persona-uozumi
+npm install
+npm run build
+cd ..
+
+# 3. 一键部署所有服务
+python deploy_memory_system.py deploy
+
+# 4. Windows 用户可直接双击
+start_memory_system.bat
+```
+
+### 方式二：手动部署
+
+#### 步骤 1：启动知识库 HTTP 服务
+```bash
+python knowledge_base_service.py
+# 服务将在 http://localhost:8001 启动
+```
+
+#### 步骤 2：启动记忆系统 MCP 服务
+```bash
+# 上下文聚合服务 (核心记忆功能)
+python context_aggregator_mcp.py
+
+# 知识库 MCP 包装器
+python knowledge_base_mcp.py
+```
+
+#### 步骤 3：启动角色人设服务
+```bash
+cd mcp-persona-uozumi
+node dist/server.js
+```
+
+### 服务管理命令
+```bash
+# 检查所有服务状态
+python deploy_memory_system.py status
+
+# 停止所有服务
+python deploy_memory_system.py stop
+
+# 重启服务
+python deploy_memory_system.py restart
+
+# 查看服务日志
+python deploy_memory_system.py logs [service_name]
+
+# 运行集成测试
+python test_integration.py
+
+# 查看记忆系统演示
+python demo_memory_system.py
+```
+
+## 🔧 MCP 客户端配置
+
+### 配置示例 (mcp_config.json)
+```json
+{
+  "mcpServers": {
+    "context-aggregator": {
+      "command": "python",
+      "args": ["context_aggregator_mcp.py"],
+      "cwd": "/path/to/mcp_database",
+      "description": "AI记忆系统核心服务"
+    },
+    "persona-uozumi": {
+      "command": "node", 
+      "args": ["./mcp-persona-uozumi/dist/server.js"],
+      "cwd": "/path/to/mcp_database",
+      "description": "角色人设服务"
+    }
+  }
+}
+```
+
+### Claude Desktop 配置
+在 `%APPDATA%\Claude\claude_desktop_config.json` 中添加：
+```json
+{
+  "mcpServers": {
+    "memory-system": {
+      "command": "python",
+      "args": ["C:/path/to/mcp_database/context_aggregator_mcp.py"]
+    }
+  }
+}
+```
 
 - 说明：FastAPI 服务负责管理 Document、生成 embeddings（通过外部 Embedding API）并做向量检索，持久化在 data/ 下。
 - 安装依赖：
@@ -100,7 +256,7 @@ KB_PORT=8000
   }
 
 - 使用建议：
-  - 会话开始时调用 get_*_system_prompt（user/char 参数），把返回内容写入会话的 system 消息。
+  - 会话开始时调用 get_*_system_prompt（user/char 参数），把返回内容写入会话的 system 消消息。
   - 若需背景设定/人设片段，用 search_*_worldbook → get_*_worldbook_entry 获取并精炼后插入回复上下文（参见“无感检索”节）。
 
 无感调用向量库（检索注入）
@@ -146,45 +302,191 @@ studio.json 示例（用于本地 supervisor / studio）：
 - requirements_mcp.txt：MCP 包装器所需依赖（fastmcp, requests 等）。
 - mcp-persona-uozumi/package.json 与 tsconfig.json：persona TypeScript 项目配置。
 
-安全与合规
+## 🔧 故障排查
 
-- 所有 persona 的系统提示应合并安全指南（personas_safety.md）；在生成系统提示时由 get_*_system_prompt 将安全规范与人设合并。
-- 向量检索注入前执行脱敏（redact_sensitive），禁止自动泄露受版权保护或 PII 的原文。
+### 常见问题解决
 
-监控与日志
+#### 服务连接问题
+```bash
+# 检查服务状态
+python deploy_memory_system.py status
 
-- 各服务应将 stdout/stderr 重定向到日志文件（示例见 studio.json 与 deploy.sh）。
-- 所有检索调用应记录（query, returned_ids, scores, timestamp）以便审计与调优。
+# 检查端口占用
+netstat -an | findstr 8001  # Windows
+lsof -i :8001              # Linux/Mac
 
-故障排查（快速）
+# 重启知识库服务
+python knowledge_base_service.py
+```
 
-- persona 未列出工具：确认 node dist/server.js 是否打印启动日志并处于运行状态；确认面板的 cwd 与 args 设置正确。
-- search_documents 报错：检查 KB 服务是否可用（http://localhost:8000/search），并检查 EMBEDDING_API_KEY 是否有效。
-- 导入失败或 embedding 超时：检查网络与 embedding API 速率限制，尝试增大学习重试间隔或分批导入。
+#### 记忆系统问题
+```bash
+# 测试向量嵌入 API
+python -c "
+import requests
+headers = {'Authorization': 'Bearer your_key'}
+response = requests.post('https://api.siliconflow.cn/v1/embeddings', 
+    headers=headers, json={'model': 'BAAI/bge-large-zh-v1.5', 'input': ['测试']})
+print(response.status_code, response.json())
+"
 
-示例快速启动顺序（推荐）
+# 运行渐进式集成测试
+python integration_guide.py
 
-1) 在一台机器上：启动 HTTP 知识库
-   python knowledge_base_service.py
+# 检查记忆存储
+python -c "
+import requests
+response = requests.get('http://localhost:8001/stats')
+print('知识库状态:', response.json())
+"
+```
 
-2) 启动向量 MCP 包装器（连接到 step1）
-   python vector_db.py
+#### MCP 工具问题
+```bash
+# 验证 MCP 服务
+python context_aggregator_mcp.py --test
 
-3) 启动 persona MCP（包含 Uozumi 与 Luoluo 工具）
-   cd mcp-persona-uozumi
-   node dist/server.js
+# 检查角色人设服务
+cd mcp-persona-uozumi
+node dist/server.js --test
+```
 
-4) 在 AI 客户端面板中配置单 stdio 服务，指向第3步的 node 进程，调用工具：
-   - 会话开始：get_*_system_prompt { user: "阿漠", char: "络络" }
-   - 运行时检索：模型静默调用 search_documents / summarize_search（如已实现）
+### 日志分析
+```bash
+# 查看服务日志
+python deploy_memory_system.py logs
 
-附录：常用文件位置与说明
+# 查看特定服务日志
+python deploy_memory_system.py logs knowledge-base
 
-- .env — 环境变量（EMBEDDING_API_KEY 等）
-- studio.json — supervisor/studio 服务定义示例（knowledge-base, vector-mcp）
-- mcp_config.json — mcp_pipe 的简易 config 示例
-- deploy.sh — 部署辅助脚本
-- .gitignore — 忽略 node_modules/ 与 dist/ 产物
+# 启用调试模式
+export DEBUG=true  # Linux/Mac
+set DEBUG=true     # Windows
+```
+
+## 📚 技术架构
+
+### 🏗️ 系统架构图
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  MCP 客户端     │───→│  上下文聚合服务  │───→│  知识库服务     │
+│  (Claude等)     │    │ context_aggregator│    │ knowledge_base  │
+└─────────────────┘    └─────────┬───────┘    └─────────────────┘
+                                 ↓                      ↓
+                       ┌─────────────────┐    ┌─────────────────┐
+                       │  角色人设服务   │    │  向量嵌入服务   │
+                       │  persona-uozumi │    │  SiliconFlow    │
+                       └─────────────────┘    └─────────────────┘
+```
+
+### 🔄 数据流
+1. **用户输入** → MCP 客户端
+2. **上下文构建** → 记忆检索 + 角色人设
+3. **AI 响应** → 基于增强提示的个性化回复
+4. **记忆存储** → 自动提取重要信息并向量化存储
+
+### 📊 技术栈
+- **后端**: Python FastAPI + Node.js TypeScript
+- **向量数据库**: 自研向量存储 + 余弦相似度搜索
+- **嵌入模型**: BAAI/bge-large-zh-v1.5 (1024维)
+- **通信协议**: MCP (Model Context Protocol)
+- **部署**: 多服务容器化部署
+
+## 📖 相关文档
+
+- **[记忆流程详解](docs/MEMORY_FLOW_GUIDE.md)** - 详细的记忆处理流程
+- **[MCP 工具列表](docs/MCP_TOOLS_LIST.md)** - 所有可用工具的完整说明
+- **[部署指南](docs/DEPLOYMENT.md)** - 生产环境部署指南
+- **[系统架构](docs/MCP_ARCHITECTURE.md)** - 详细的架构设计文档
+
+## 🤝 贡献指南
+
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交变更 (`git commit -m 'Add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 开启 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ---
-如需我把 README 的这些变更同步提交到 git（git add/commit），或把 persona 的合并构建（npm run build）并本地启动一次进行连通性测试，我可以继续为你执行这些步骤。
+
+🎉 **恭喜！你现在拥有了一个完整的 AI 记忆系统！**
+
+让 AI 拥有"记忆"用户信息的能力，打造更加个性化和连续的对话体验。
+
+## 🧠 记忆系统使用指南
+
+### 📋 核心 MCP 工具
+
+| 工具名 | 功能 | 用途 |
+|--------|------|------|
+| `build_prompt_with_context` | 🎯 构建增强系统提示 | AI对话增强，加载用户记忆 |
+| `store_conversation_memory` | 💾 存储对话记忆 | 自动提取重要信息并存储 |
+| `get_user_memories` | 🔍 检索用户记忆 | 查询和分析用户历史记忆 |
+| `get_service_status` | ⚡ 服务状态监控 | 检查记忆系统运行状态 |
+
+### 📝 使用示例
+
+#### 1. AI 对话增强
+```python
+# 为用户构建包含记忆的增强提示
+enhanced_prompt = build_prompt_with_context(
+    persona_name="luoluo",  # 选择角色：luoluo 或 uozumi
+    user_id="user001",      # 用户唯一标识
+    user_query="今天想喝什么咖啡？"  # 当前查询（可选）
+)
+```
+
+#### 2. 记忆自动存储
+```python
+# 对话结束后自动提取并存储重要信息
+conversation = """
+用户: 我最近爱上了手冲咖啡
+络络: 听起来很有趣！你喜欢什么豆子？
+用户: 埃塞俄比亚的耶加雪菲，酸度适中
+"""
+
+result = store_conversation_memory(
+    user_id="user001",
+    conversation_history=conversation,
+    force_save=False  # 是否强制保存低重要性记忆
+)
+```
+
+#### 3. 记忆查询分析
+```python
+# 获取用户的咖啡相关记忆
+memories = get_user_memories(
+    user_id="user001",
+    query="咖啡 喜好 口味",
+    top_k=5,
+    memory_type="preference"  # 可选：preference/event/knowledge/emotional
+)
+```
+
+### 🔄 记忆处理流程
+
+```
+👤 用户对话 → 🧠 LLM 分析 → 📊 重要性评分 → 🔢 向量化存储 
+                  ↓
+🏷️ 标签索引 → 🔍 语义检索 → 🎯 上下文聚合 → 💬 增强对话
+```
+
+### 📊 记忆类型分类
+
+- **🆔 身份信息** (`identity`): 姓名、职业、基本信息
+- **❤️ 偏好习惯** (`preference`): 喜好、习惯、口味偏好
+- **📚 知识技能** (`knowledge`): 学习内容、专业技能
+- **🏠 生活信息** (`lifestyle`): 居住地、日程安排
+- **😊 情感状态** (`emotional`): 心情、情感表达
+
+### 🎯 技术特性
+
+- **🔢 语义向量**: 1024维向量 (BAAI/bge-large-zh-v1.5)
+- **🏷️ 标签索引**: 多维度分类和快速过滤
+- **🔒 用户隔离**: 基于 metadata 的数据隔离
+- **⚡ 实时性**: 毫秒级检索响应
+- **🧠 智能评分**: LLM 自动评估记忆重要性

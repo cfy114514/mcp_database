@@ -35,12 +35,13 @@ except Exception as e:
     raise
 
 @mcp.tool()
-def search_documents(query: str, tags: Optional[List[str]] = None, top_k: Optional[int] = 5) -> dict:
+def search_documents(query: str, tags: Optional[List[str]] = None, top_k: Optional[int] = 5, metadata_filter: Optional[Dict] = None) -> dict:
     """搜索文档。
     Args:
         query: 搜索查询文本
         tags: 可选的标签列表进行过滤
         top_k: 返回的最大结果数量
+        metadata_filter: 可选的元数据过滤条件
 
     Returns:
         包含搜索结果的字典
@@ -49,7 +50,8 @@ def search_documents(query: str, tags: Optional[List[str]] = None, top_k: Option
         results = db.search(
             query=query, 
             tags=tags, 
-            top_k=top_k if top_k is not None else 5
+            top_k=top_k if top_k is not None else 5,
+            metadata_filter=metadata_filter
         )
         return {
             "success": True,

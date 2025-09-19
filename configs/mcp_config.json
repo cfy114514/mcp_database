@@ -1,0 +1,98 @@
+{
+  "mcpServers": {
+    "persona-uozumi": {
+      "command": "node",
+      "args": ["./mcp-persona-uozumi/dist/server.js"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "description": "Uozumi 和 Luoluo 角色人设服务（已合并）",
+      "capabilities": ["tools"],
+      "restart": true,
+      "restartDelay": 3000
+    },
+    "knowledge-base": {
+      "command": "python",
+      "args": ["knowledge_base_mcp.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_SERVICE_URL": "http://localhost:8000"
+      },
+      "description": "向量知识库 MCP 服务，提供文档搜索和存储功能",
+      "capabilities": ["tools"],
+      "restart": true,
+      "restartDelay": 5000,
+      "dependsOn": ["knowledge-base-http"]
+    },
+    "context-aggregator": {
+      "command": "python",
+      "args": ["context_aggregator_mcp.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_SERVICE_URL": "http://localhost:8000"
+      },
+      "description": "上下文聚合服务，整合角色人设和用户记忆",
+      "capabilities": ["tools"],
+      "restart": true,
+      "restartDelay": 3000,
+      "dependsOn": ["persona-uozumi", "knowledge-base"]
+    }
+  },
+  "httpServices": {
+    "knowledge-base-http": {
+      "command": "python",
+      "args": ["knowledge_base_service.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_PORT": "8000"
+      },
+      "description": "知识库 HTTP 服务，提供向量数据库 REST API",
+      "port": 8000,
+      "healthCheck": {
+        "url": "http://localhost:8000/docs",
+        "interval": 30000,
+        "timeout": 5000
+      },
+      "restart": true,
+      "restartDelay": 5000
+    }
+  },
+  "globalConfig": {
+    "logLevel": "info",
+    "timeout": 30000,
+    "retryAttempts": 3,
+    "maxConcurrentConnections": 10,
+    "enableHealthChecks": true,
+    "gracefulShutdownTimeout": 10000
+  },
+  "security": {
+    "enableSandbox": true,
+    "allowedNetworkAccess": ["localhost", "127.0.0.1"],
+    "resourceLimits": {
+      "maxMemory": "1GB",
+      "maxCpuPercent": 80
+    }
+  },
+  "features": {
+    "memorySystem": {
+      "enabled": true,
+      "version": "1.0.0",
+      "components": ["memory-processor", "context-aggregator", "user-isolation"]
+    },
+    "personaServices": {
+      "enabled": true,
+      "availablePersonas": ["uozumi", "luoluo"]
+    },
+    "knowledgeBase": {
+      "enabled": true,
+      "supportedFeatures": ["vector-search", "metadata-filter", "tag-filtering"]
+    }
+  },
+  "description": "MCP 记忆系统完整配置 - 支持角色人设、知识库和智能记忆管理",
+  "version": "2.0.0",
+  "lastUpdated": "2025-09-19"
+}

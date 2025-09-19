@@ -11,6 +11,7 @@ import base64
 from numpy.linalg import norm
 import os
 import uvicorn
+import time
 
 # 加载环境变量
 load_dotenv()
@@ -29,6 +30,7 @@ class SearchRequest(BaseModel):
     query: str
     tags: Optional[List[str]] = None
     top_k: Optional[int] = 5
+    metadata_filter: Optional[Dict] = None
 
 class SearchResponse(BaseModel):
     success: bool
@@ -161,7 +163,7 @@ class VectorDatabase:
             logger.error(f"Error adding document: {e}")
             return False
 
-    def search(self, query: str, tags: Optional[List[str]] = None, top_k: int = 5) -> List[Document]:
+    def search(self, query: str, tags: Optional[List[str]] = None, top_k: int = 5, metadata_filter: Optional[Dict] = None) -> List[Document]:
         try:
             candidate_ids = None
             if tags:
@@ -196,8 +198,18 @@ class VectorDatabase:
                 # 计算余弦相似度
                 similarity = np.dot(query_vector, vec)
                 doc_id = self.document_ids[i]
-                if candidate_ids is None or doc_id in candidate_ids:
-                    scores.append((similarity, i))
+                
+                # 检查候选文档集合（基于标签过滤）
+                if candidate_ids is not None and doc_id not in candidate_ids:
+                    continue
+                
+                # 检查元数据过滤
+                if metadata_filter:
+                    doc = self.documents[doc_id]
+                    if not self._matches_metadata_filter(doc.metadata, metadata_filter):
+                        continue
+                
+                scores.append((similarity, i))
             
             scores.sort(reverse=True)
             results = []
@@ -218,6 +230,44 @@ class VectorDatabase:
                     self.tag_index[tag] = set()
                 self.tag_index[tag].add(doc_id)
 
+    def _matches_metadata_filter(self, doc_metadata: Optional[Dict], filter_criteria: Dict) -> bool:
+        """
+        检查文档元数据是否匹配过滤条件
+        
+        Args:
+            doc_metadata: 文档的元数据
+            filter_criteria: 过滤条件字典
+            
+        Returns:
+            bool: 是否匹配过滤条件
+        """
+        if not doc_metadata or not filter_criteria:
+            return True
+            
+        for key, expected_value in filter_criteria.items():
+            if key not in doc_metadata:
+                return False
+            
+            actual_value = doc_metadata[key]
+            
+            # 支持不同类型的匹配
+            if isinstance(expected_value, dict):
+                # 支持范围查询，如 {"importance": {"gte": 5}}
+                if "gte" in expected_value and actual_value < expected_value["gte"]:
+                    return False
+                if "lte" in expected_value and actual_value > expected_value["lte"]:
+                    return False
+                if "gt" in expected_value and actual_value <= expected_value["gt"]:
+                    return False
+                if "lt" in expected_value and actual_value >= expected_value["lt"]:
+                    return False
+            else:
+                # 精确匹配
+                if actual_value != expected_value:
+                    return False
+                    
+        return True
+
 # 创建 FastAPI 应用
 app = FastAPI(title="Knowledge Base API")
 db = VectorDatabase()
@@ -229,11 +279,52 @@ async def search_documents(request: SearchRequest):
         results = db.search(
             query=request.query,
             tags=request.tags,
-            top_k=request.top_k if request.top_k is not None else 5
+            top_k=request.top_k if request.top_k is not None else 5,
+            metadata_filter=request.metadata_filter
         )
         return SearchResponse(success=True, results=results)
     except Exception as e:
         logger.error(f"Search error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/add")
+async def add_document(request: Dict):
+    """添加文档到知识库"""
+    try:
+        # 创建文档对象
+        document = Document(
+            id=f"doc_{int(time.time() * 1000)}_{len(db.documents)}",
+            content=request["content"],
+            tags=request.get("tags", []),
+            metadata=request.get("metadata", {})
+        )
+        
+        # 添加到数据库
+        success = db.add_document(document)
+        
+        if success:
+            return {"success": True, "document_id": document.id}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to add document")
+            
+    except Exception as e:
+        logger.error(f"Add document error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/stats")
+async def get_stats():
+    """获取知识库统计信息"""
+    try:
+        stats = {
+            "document_count": len(db.documents),
+            "vector_count": len(db.vectors),
+            "tag_count": len(db.tag_index),
+            "tags": list(db.tag_index.keys()),
+            "status": "running"
+        }
+        return {"success": True, "stats": stats}
+    except Exception as e:
+        logger.error(f"Stats error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

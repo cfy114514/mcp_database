@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "persona-uozumi": {
+      "command": "node",
+      "args": ["./mcp-persona-uozumi/dist/server.js"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "mcp:*"
+      },
+      "description": "Uozumi 和 Luoluo 角色人设服务（开发模式）"
+    },
+    "knowledge-base": {
+      "command": "python",
+      "args": ["knowledge_base_mcp.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_SERVICE_URL": "http://localhost:8000",
+        "LOG_LEVEL": "DEBUG"
+      },
+      "description": "向量知识库 MCP 服务（开发模式）"
+    },
+    "context-aggregator": {
+      "command": "python",
+      "args": ["context_aggregator_mcp.py"],
+      "cwd": "c:/Users/Administrator/Documents/mcp_database",
+      "env": {
+        "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
+        "KB_SERVICE_URL": "http://localhost:8000",
+        "LOG_LEVEL": "DEBUG"
+      },
+      "description": "上下文聚合服务（开发模式）"
+    }
+  },
+  "globalConfig": {
+    "logLevel": "debug",
+    "timeout": 60000,
+    "retryAttempts": 1,
+    "maxConcurrentConnections": 5
+  },
+  "development": {
+    "hotReload": true,
+    "debugMode": true,
+    "verboseLogging": true,
+    "testDataEnabled": true
+  },
+  "description": "MCP 记忆系统开发配置 - 用于开发和调试",
+  "version": "2.0.0-dev"
+}

@@ -147,8 +147,14 @@ class MCPUnifiedDeployment:
         
     def ensure_directories(self):
         """确保必要目录存在"""
-        for directory in [self.log_dir, self.pid_dir, self.config_dir]:
-            directory.mkdir(exist_ok=True)
+        try:
+            for directory in [self.log_dir, self.pid_dir, self.config_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+                print_status(f"✓ 目录已创建: {directory}", "SUCCESS")
+            return True
+        except Exception as e:
+            print_status(f"✗ 创建目录失败: {e}", "ERROR")
+            return False
             
     def check_environment(self) -> bool:
         """检查环境要求"""
@@ -403,7 +409,7 @@ python3 deploy_all_tools.py start
         else:
             # 对于没有健康检查URL的服务，检查进程是否还在运行
             process = self.processes.get(service_name)
-            return process and process.poll() is None
+            return process is not None and process.poll() is None
             
     def stop_service(self, service_name: str) -> bool:
         """停止单个服务"""

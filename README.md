@@ -38,57 +38,180 @@ mcp-persona-uozumi/
 ## 🚀 快速开始
 
 ### 📋 **环境要求**
-- Python 3.7+
-- 4GB+ 内存  
-- SiliconFlow API密钥
+- **Python 3.7+** (必需)
+- **Node.js 16+** (角色人设服务需要)
+- **4GB+ 内存**
+- **SiliconFlow API密钥** (embedding服务)
 
-### ⚡ **一键部署**
-```bash
-# 1. 配置API密钥
-export EMBEDDING_API_KEY=your_siliconflow_api_key
+### ⚡ **一键部署 (推荐)**
 
-# 2. 一键部署
-python mcp_memory_manager.py deploy
-
-# 3. 验证部署
-python mcp_memory_manager.py test
+#### Windows用户：
+```batch
+# 双击运行或在命令行执行
+start_all_tools.bat
 ```
 
-### 🛠️ **详细安装**
-
-#### 1. 安装依赖
+#### Linux/Mac用户：
 ```bash
-pip install fastapi uvicorn numpy requests python-multipart
+# 赋予执行权限并运行
+chmod +x start_all_tools.sh
+./start_all_tools.sh
 ```
 
-#### 2. 配置环境
+#### 手动一键部署：
 ```bash
-# 创建 .env 文件
-echo "EMBEDDING_API_KEY=your_api_key" > .env
-echo "KB_PORT=8001" >> .env
+# 一键部署所有工具（环境检查+依赖安装+配置+启动+测试）
+python deploy_all_tools.py deploy
 ```
 
-#### 3. 启动服务
+### 🛠️ **手动配置部署**
+
+#### 1. 环境检查
 ```bash
-# 检查环境
-python mcp_memory_manager.py check
+# 检查Python、Node.js和必要文件
+python deploy_all_tools.py check
+```
 
-# 启动服务  
-python mcp_memory_manager.py start
+#### 2. 安装依赖
+```bash
+# 自动安装Python和Node.js依赖
+python deploy_all_tools.py install
+```
 
-# 测试功能
-python mcp_memory_manager.py test
+#### 3. 配置系统
+```bash
+# 创建配置文件和启动脚本
+python deploy_all_tools.py config
+```
+
+#### 4. 启动服务
+```bash
+# 启动所有三个工具
+python deploy_all_tools.py start
+```
+
+#### 5. 测试功能
+```bash
+# 运行完整功能测试
+python deploy_all_tools.py test
+```
+
+### 🔧 **手动环境配置**
+
+#### 配置API密钥
+在项目根目录创建 `.env` 文件：
+```env
+EMBEDDING_API_KEY=your_siliconflow_api_key
+EMBEDDING_API_BASE=https://api.siliconflow.cn/v1
+EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+KB_PORT=8001
+```
+
+#### 安装依赖包
+```bash
+# Python依赖
+pip install fastapi uvicorn numpy requests python-dotenv pydantic
+
+# Node.js依赖 (如果使用角色人设服务)
+cd mcp-persona-uozumi
+npm install
+npm run build
 ```
 
 ## 📖 使用指南
 
-### 🎯 **记忆处理流程**
+### 🎯 **三套工具系统架构**
 
-#### 记忆提取和存储
+#### 📊 工具分工说明
+```
+🧠 记忆库工具 (端口 8001)
+├── embedding_memory_processor.py      - 纯Embedding记忆处理
+├── embedding_context_aggregator_mcp.py - 记忆上下文聚合MCP服务
+└── test_embedding_memory.py          - 统一测试脚本
+
+📚 向量数据库工具 (端口 8000)  
+├── knowledge_base_service.py         - 通用向量数据库HTTP服务
+├── context_aggregator_mcp.py         - 传统上下文聚合MCP服务
+├── memory_processor.py               - 传统LLM记忆处理
+└── knowledge_base_mcp.py             - 知识库MCP接口
+
+👤 角色人设服务 (Node.js MCP)
+├── mcp-persona-uozumi/src/server.ts  - TypeScript MCP服务器
+├── personas_uozumi.md                - 仓桥卯月角色设定
+└── personas_luoluo.md                - 络络角色设定
+```
+
+### 🔄 **服务管理命令**
+
+#### 基本服务管理
+```bash
+# 查看所有服务状态
+python deploy_all_tools.py status
+
+# 启动所有服务
+python deploy_all_tools.py start
+
+# 停止所有服务  
+python deploy_all_tools.py stop
+
+# 重启所有服务
+python deploy_all_tools.py stop && python deploy_all_tools.py start
+```
+
+#### 测试和诊断
+```bash
+# 运行完整功能测试
+python deploy_all_tools.py test
+
+# 运行单项测试
+python test_embedding_memory.py env        # 环境测试
+python test_embedding_memory.py api        # API配置测试
+python test_embedding_memory.py storage    # 存储功能测试
+python test_embedding_memory.py filter     # 过滤功能测试
+python test_embedding_memory.py integration # 集成测试
+```
+
+### 🌐 **服务访问地址**
+
+启动成功后，可通过以下地址访问：
+
+- **🧠 记忆库工具API**: http://localhost:8001/docs
+- **📚 向量数据库工具API**: http://localhost:8000/docs
+- **👤 角色人设服务**: Node.js MCP服务 (无HTTP接口，通过MCP协议访问)
+
+### 🧠 **记忆处理流程**
+
+#### 1. 基于Embedding的记忆提取和存储
 ```python
 from embedding_memory_processor import EmbeddingMemoryProcessor
 
-# 初始化处理器
+# 初始化处理器 (连接记忆库工具)
+processor = EmbeddingMemoryProcessor(kb_service_url="http://localhost:8001")
+
+# 处理对话并提取记忆
+result = processor.process_and_save_conversation(
+    conversation="用户说：我喜欢看科幻电影，最近在看《沙丘》",
+    user_id="user123"
+)
+
+print(f"提取到 {result['total_memories']} 条记忆")
+```
+
+#### 2. 记忆检索和上下文构建
+```python
+# 检索相关记忆
+memories = processor.search_memories(
+    user_id="user123",
+    query="电影偏好",
+    top_k=5
+)
+
+# 打印检索结果
+for memory in memories:
+    print(f"记忆: {memory['content']}")
+    print(f"类型: {memory['memory_type']}")
+    print(f"重要性: {memory['importance']}")
+```
 processor = EmbeddingMemoryProcessor()
 
 # 处理对话并存储记忆
@@ -496,238 +619,466 @@ grep "response_time" logs/knowledge_base_http.log
 # - 定期清理过期数据
 ```
 
-### 📊 **性能优化**
-- **内存优化**: 定期清理过期记忆和缓存
-- **索引优化**: 重建向量索引提升搜索速度
-- **并发调优**: 根据硬件配置调整worker数量
-- **数据压缩**: 使用压缩存储减少磁盘占用
+### 📚 **完整的三工具使用指南和配置说明**
 
-## 🌍 部署选项
+## 🚀 三工具使用指南
 
-### 🖥️ **本地开发**
-```bash
-# 开发模式启动
-python mcp_memory_manager.py deploy
+### 🧠 **记忆库工具使用**
+
+#### 核心API接口
+- `POST /add` - 添加记忆
+- `POST /search` - 搜索记忆  
+- `GET /stats` - 获取统计信息
+- `GET /docs` - API文档
+
+#### 示例请求
+```python
+import requests
+
+# 添加记忆
+response = requests.post("http://localhost:8001/add", json={
+    "id": "memory_001",
+    "content": "用户喜欢科幻电影",
+    "tags": ["偏好", "娱乐"],
+    "metadata": {
+        "user_id": "user123",
+        "memory_type": "preference",
+        "importance": 0.8
+    }
+})
+
+# 搜索记忆
+response = requests.post("http://localhost:8001/search", json={
+    "query": "电影偏好",
+    "metadata_filter": {"user_id": "user123"},
+    "top_k": 5
+})
 ```
 
-### ☁️ **Linux服务器部署**
+### 📚 **向量数据库操作**
 
-#### 自动部署脚本
+#### 文档导入和管理
 ```bash
-# 上传项目文件
-scp -r mcp_database/ root@your-server:/root/
+# 使用通用文档导入工具
+python import_docs.py --domain general --dir documents --pattern "*.txt"
 
-# SSH登录服务器
-ssh root@your-server
-cd /root/mcp_database
+# 使用法律领域专用导入
+python import_docs.py --domain legal --dir legal_docs
 
-# 运行自动修复脚本
-chmod +x fix_linux_env.sh
-./fix_linux_env.sh
-
-# 测试环境
-python3 test_linux_env.py
-
-# 启动服务
-chmod +x start_linux_services.sh
-./start_linux_services.sh
-
-# 一键部署
-python3 mcp_memory_manager.py deploy
+# 重置数据库
+python reset_database.py --no-backup  # 直接重置
+python reset_database.py              # 重置前备份
 ```
 
-#### 手动部署步骤
-```bash
-# 1. 检查Python环境
-which python3
-python3 --version
+#### API调用示例
+```python
+import requests
 
-# 2. 创建python软链接（如果需要）
-sudo ln -sf $(which python3) /usr/local/bin/python
+# 搜索文档
+response = requests.post("http://localhost:8000/search", json={
+    "query": "人工智能技术",
+    "top_k": 5,
+    "tags": ["技术", "AI"]
+})
 
-# 3. 安装依赖
-pip3 install -r requirements.txt
-
-# 4. 验证模块导入
-python3 -c "import mcp; print('MCP模块导入成功')"
-
-# 5. 设置文件权限
-chmod +x *.py
-
-# 6. 启动服务
-python3 knowledge_base_service.py &
-python3 embedding_context_aggregator_mcp.py &
+# 添加文档
+response = requests.post("http://localhost:8000/add", json={
+    "id": "doc_001",
+    "content": "这是一篇关于人工智能的文档...",
+    "tags": ["AI", "技术"],
+    "metadata": {"author": "张三", "date": "2025-01-17"}
+})
 ```
 
-#### Linux配置文件
-使用 `configs/mcp_config.linux.json`：
+### 👤 **角色人设服务使用**
+
+#### MCP工具调用
+```python
+# 通过MCP协议调用角色服务
+from mcp.client import Client
+
+# 获取角色系统提示
+prompt = await client.call_tool("get_uozumi_system_prompt", {
+    "user_name": "用户",
+    "char_name": "卯月"
+})
+
+# 获取角色回复
+response = await client.call_tool("get_uozumi_response", {
+    "user_input": "你好，卯月",
+    "context": "日常对话"
+})
+```
+
+## 🔧 配置说明
+
+### 📋 **环境变量配置**
+
+创建 `.env` 文件并配置以下变量：
+
+```env
+# 必需配置
+EMBEDDING_API_KEY=your_siliconflow_api_key
+EMBEDDING_API_BASE=https://api.siliconflow.cn/v1
+EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+
+# 端口配置 (已优化，通常无需修改)
+KB_PORT=8001                    # 记忆库工具端口
+VECTOR_DB_PORT=8000            # 向量数据库工具端口
+
+# 可选配置
+LLM_API_KEY=your_llm_api_key   # LLM服务密钥 (传统记忆处理需要)
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-3.5-turbo
+```
+
+### 🗂️ **MCP配置文件**
+
+项目包含多个MCP配置文件：
+
+- **`configs/mcp_config.json`** - 主要生产配置
+- **`configs/mcp_config.dev.json`** - 开发环境配置  
+- **`configs/mcp_config.linux.json`** - Linux服务器配置
+
+### 📝 **自定义配置**
+
+#### 修改端口配置
+如需修改默认端口，请同时更新：
+1. `.env` 文件中的端口变量
+2. `configs/` 目录下的MCP配置文件
+3. 相应的服务启动脚本
+
+#### 添加新的角色人设
+1. 在 `mcp-persona-uozumi/` 目录下添加新的角色MD文件
+2. 修改 `src/server.ts` 添加新的工具函数
+3. 重新构建: `npm run build`
+
+## 🧪 测试和验证
+
+### 🔍 **完整测试套件**
+
+```bash
+# 运行所有测试
+python test_embedding_memory.py all
+
+# 分项测试
+python test_embedding_memory.py env        # 环境和依赖检查
+python test_embedding_memory.py api        # API配置验证
+python test_embedding_memory.py storage    # 记忆存储功能测试
+python test_embedding_memory.py filter     # 元数据过滤测试
+python test_embedding_memory.py integration # 端到端集成测试
+```
+
+### 📊 **系统监控**
+
+#### 查看服务状态
+```bash
+# 实时状态监控
+python deploy_all_tools.py status
+
+# 查看服务日志
+tail -f logs/memory_library.log     # 记忆库工具日志
+tail -f logs/vector_database.log    # 向量数据库工具日志
+tail -f logs/persona_service.log    # 角色人设服务日志
+```
+
+#### 性能测试
+```bash
+# API响应时间测试
+curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:8001/docs"
+curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:8000/docs"
+
+# 记忆处理性能测试
+python test_embedding_memory.py storage --performance
+```
+
+## 🚨 故障排除
+
+### ❌ **常见问题**
+
+#### 1. 服务启动失败
+```bash
+# 检查端口占用
+netstat -ano | findstr :8001  # Windows
+netstat -tlnp | grep :8001    # Linux
+
+# 检查日志文件
+type logs\memory_library.log   # Windows  
+cat logs/memory_library.log    # Linux
+```
+
+#### 2. API密钥配置问题
+```bash
+# 验证环境变量
+python -c "import os; print('API Key:', os.getenv('EMBEDDING_API_KEY', 'Not Set'))"
+
+# 测试API连接
+python test_embedding_memory.py api
+```
+
+#### 3. 依赖包问题
+```bash
+# 重新安装依赖
+python deploy_all_tools.py install
+
+# 手动安装核心依赖
+pip install fastapi uvicorn numpy requests python-dotenv pydantic
+```
+
+#### 4. Node.js服务问题  
+```bash
+# 检查Node.js环境
+node --version
+npm --version
+
+# 重新构建TypeScript
+cd mcp-persona-uozumi
+npm install
+npm run build
+```
+
+### 🔄 **重置和清理**
+
+#### 完全重置系统
+```bash
+# 停止所有服务
+python deploy_all_tools.py stop
+
+# 清理日志和PID文件
+rm -rf logs/ pids/              # Linux
+rmdir /s logs pids             # Windows
+
+# 重置数据库
+python reset_database.py --no-backup
+
+# 重新部署
+python deploy_all_tools.py deploy
+```
+
+## 📚 API文档
+
+### 🧠 **记忆库工具API (8001)**
+
+#### 核心接口
+- `POST /add` - 添加记忆
+- `POST /search` - 搜索记忆  
+- `GET /stats` - 获取统计信息
+- `GET /docs` - API文档
+
+#### 示例请求
+```python
+# 添加记忆
+requests.post("http://localhost:8001/add", json={
+    "id": "memory_001",
+    "content": "用户喜欢科幻电影",
+    "tags": ["偏好", "娱乐"],
+    "metadata": {
+        "user_id": "user123",
+        "memory_type": "preference",
+        "importance": 0.8
+    }
+})
+
+# 搜索记忆
+requests.post("http://localhost:8001/search", json={
+    "query": "电影偏好",
+    "metadata_filter": {"user_id": "user123"},
+    "top_k": 5
+})
+```
+
+### 📚 **向量数据库工具API (8000)**
+
+#### 核心接口
+- `POST /add` - 添加文档
+- `POST /search` - 搜索文档
+- `GET /stats` - 获取统计信息
+- `GET /docs` - API文档
+
+#### 示例请求
+```python
+# 添加文档
+requests.post("http://localhost:8000/add", json={
+    "id": "doc_001", 
+    "content": "人工智能是计算机科学的一个分支...",
+    "tags": ["AI", "技术", "科学"],
+    "metadata": {"category": "technology", "language": "zh"}
+})
+
+# 搜索文档
+requests.post("http://localhost:8000/search", json={
+    "query": "人工智能技术发展",
+    "tags": ["AI"],
+    "top_k": 10
+})
+```
+
+## 🔧 高级配置
+
+### 🎛️ **性能优化**
+
+#### Embedding模型配置
+```env
+# 使用更高精度的模型
+EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+
+# 或使用更快的模型
+EMBEDDING_MODEL=BAAI/bge-base-zh-v1.5
+```
+
+#### 内存和性能调优
+```python
+# 在 knowledge_base_service.py 中调整向量维度
+db = VectorDatabase(dimension=1024)  # 默认1024维
+
+# 调整搜索结果数量
+top_k = 10  # 根据需要调整
+```
+
+### 🔐 **安全配置**
+
+#### API访问控制
+```python
+# 在 FastAPI 应用中添加认证
+from fastapi.security import HTTPBearer
+
+security = HTTPBearer()
+
+@app.post("/search")
+async def search_documents(request: SearchRequest, token: str = Depends(security)):
+    # 验证token逻辑
+    pass
+```
+
+#### 数据隔离
+```python
+# 确保用户数据隔离
+metadata_filter = {"user_id": current_user_id}
+results = db.search(query, metadata_filter=metadata_filter)
+```
+
+## 📈 监控和维护
+
+### 📊 **系统监控**
+
+#### 服务健康检查
+```bash
+# 检查所有服务状态
+python deploy_all_tools.py status
+
+# API健康检查
+curl http://localhost:8001/docs
+curl http://localhost:8000/docs
+```
+
+#### 性能监控
+```python
+# 记录API响应时间
+import time
+
+start_time = time.time()
+response = requests.post("http://localhost:8001/search", json=search_data)
+response_time = time.time() - start_time
+print(f"API响应时间: {response_time:.3f}秒")
+```
+
+### 🔄 **数据备份**
+
+#### 向量数据备份
+```bash
+# 使用内置备份工具
+python reset_database.py  # 会在重置前自动备份
+
+# 手动备份数据目录
+cp -r data/ backups/backup_$(date +%Y%m%d_%H%M%S)/
+```
+
+#### 配置文件备份
+```bash
+# 备份配置
+tar -czf config_backup_$(date +%Y%m%d).tar.gz configs/ .env
+```
+
+## 🚀 扩展开发
+
+### 🔌 **添加新的MCP工具**
+
+#### 1. 创建新工具文件
+```python
+# new_mcp_tool.py
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("NewTool")
+
+@mcp.tool()
+def new_function(param: str) -> str:
+    """新功能描述"""
+    return f"处理结果: {param}"
+
+if __name__ == "__main__":
+    mcp.run(transport="stdio")
+```
+
+#### 2. 更新配置文件
 ```json
+# configs/mcp_config.json
 {
   "mcpServers": {
-    "embedding-memory": {
-      "command": "python3",
-      "args": ["/root/mcp_database/embedding_context_aggregator_mcp.py"],
-      "env": {
-        "KB_PORT": "8001",
-        "EMBEDDING_API_KEY": "your_api_key"
-      }
+    "new-tool": {
+      "command": "python",
+      "args": ["new_mcp_tool.py"],
+      "description": "新工具描述"
     }
   }
 }
 ```
 
-### 🐳 **Docker部署**
-```dockerfile
-# Dockerfile
-FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 8001
-CMD ["python", "mcp_memory_manager.py", "start"]
-```
+### 🎨 **自定义记忆处理**
 
-```bash
-# 构建和运行
-docker build -t mcp-memory .
-docker run -p 8001:8001 -e EMBEDDING_API_KEY=your_key mcp-memory
-```
-
-## 📊 API参考
-
-### 🔌 **REST API端点**
-- `GET /docs` - API文档界面
-- `GET /health` - 健康检查
-- `GET /stats` - 服务统计信息
-- `POST /add` - 添加记忆文档
-- `POST /search` - 搜索记忆
-- `DELETE /reset` - 重置数据库 (危险操作)
-
-### 🛠️ **MCP工具接口**
-- `build_prompt_with_context(user_id, query, top_k)` - 构建增强提示
-- `store_conversation_memory(user_id, conversation)` - 存储对话记忆
-- `get_user_memories(user_id, memory_type, limit)` - 获取用户记忆
-- `analyze_conversation_insights(user_id, conversation)` - 分析对话洞察
-
-### 📋 **响应格式**
-```json
-{
-  "success": true,
-  "data": {
-    "memories": [
-      {
-        "id": "memory_001",
-        "content": "用户喜欢喝拿铁咖啡",
-        "type": "preference",
-        "importance": 8,
-        "timestamp": "2024-01-01T12:00:00",
-        "metadata": {
-          "user_id": "user_001"
-        }
-      }
-    ],
-    "total": 1
-  },
-  "message": "检索成功"
-}
-```
-
-## 🎭 角色人设管理
-
-### 👤 **支持的角色**
-- **仓桥卯月** (`uozumi`) - 偶像大师角色
-- **络络** (`luoluo`) - 自定义AI助手角色
-
-### 🔧 **角色配置**
-```json
-{
-  "persona": {
-    "name": "络络",
-    "personality": "活泼开朗、善解人意",
-    "speaking_style": "温暖亲切，喜欢用表情符号",
-    "background": "AI助手，喜欢帮助用户解决问题",
-    "catchphrases": ["我来帮你～", "没问题的！"]
-  }
-}
-```
-
-### 🎨 **动态人格调整**
+#### 扩展记忆类型
 ```python
-# 更新角色特质
-update_persona_traits(
-    persona_name="luoluo",
-    traits="今天特别有活力，喜欢用更多感叹号"
-)
+# 在 embedding_memory_processor.py 中扩展
+def classify_memory_type(self, text: str) -> str:
+    # 添加新的记忆类型分类逻辑
+    if "学习" in text or "课程" in text:
+        return "education"
+    elif "工作" in text or "项目" in text:
+        return "work"
+    # ... 其他分类逻辑
 ```
 
-## 📞 技术支持
+#### 自定义重要性评分
+```python
+def calculate_importance(self, text: str, context: str = "") -> float:
+    # 实现自定义重要性评分算法
+    base_score = 5.0
+    
+    # 根据关键词调整分数
+    important_keywords = ["重要", "紧急", "记住"]
+    for keyword in important_keywords:
+        if keyword in text:
+            base_score += 1.0
+            
+    return min(base_score, 10.0)
+```
 
-### 🆘 **获取帮助**
-1. **服务日志**: `logs/knowledge_base_http.log`
-2. **环境检查**: `python mcp_memory_manager.py check`
-3. **API状态**: `http://localhost:8001/docs`
-4. **社区支持**: GitHub Issues
+## 📞 支持和反馈
 
-### 📈 **监控告警**
+### 🐛 **问题报告**
+
+如遇到问题，请提供以下信息：
+
+1. **系统环境**: 操作系统、Python版本、Node.js版本
+2. **错误日志**: 来自 `logs/` 目录的相关日志文件
+3. **复现步骤**: 详细的操作步骤
+4. **配置信息**: `.env` 和 `configs/` 中的配置（隐敏感信息）
+
+### 📋 **诊断信息收集**
 ```bash
-# 设置监控脚本
-cat > monitor.sh << 'EOF'
-#!/bin/bash
-while true; do
-  if ! curl -s http://localhost:8001/health > /dev/null; then
-    echo "$(date): Service is down, restarting..."
-    python mcp_memory_manager.py start
-  fi
-  sleep 60
-done
-EOF
-chmod +x monitor.sh
-nohup ./monitor.sh &
+# 生成系统诊断报告
+python deploy_all_tools.py check > system_diagnostic.txt
+python deploy_all_tools.py status >> system_diagnostic.txt
 ```
-
-### 🔍 **日志分析**
-```bash
-# 查看错误日志
-grep "ERROR" logs/knowledge_base_http.log
-
-# 分析性能
-grep "response_time" logs/knowledge_base_http.log | awk '{sum+=$NF; count++} END {print "Average response time:", sum/count "ms"}'
-
-# 监控内存使用
-ps aux | grep knowledge_base_service.py
-```
-
-### 📮 **贡献指南**
-欢迎提交Issue和Pull Request来改进项目：
-1. Fork项目仓库
-2. 创建功能分支
-3. 提交代码变更  
-4. 创建Pull Request
-
-### 🐛 **Bug报告**
-提交Bug时请包含：
-- 错误信息和堆栈跟踪
-- 复现步骤
-- 系统环境信息
-- 相关日志文件
-
-### 💡 **功能请求**
-提交功能请求时请描述：
-- 使用场景和需求
-- 期望的行为
-- 可能的实现方案
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
-
-## 🔗 相关链接
-
-- **SiliconFlow API**: https://api.siliconflow.cn/
-- **BAAI/bge-large-zh-v1.5**: https://huggingface.co/BAAI/bge-large-zh-v1.5
-- **MCP Protocol**: https://modelcontextprotocol.io/
-- **FastAPI文档**: https://fastapi.tiangolo.com/
 
 ---
 

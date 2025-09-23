@@ -523,6 +523,14 @@ python3 deploy_all_tools.py start
             print_status("✗ 向量数据库工具测试失败", "ERROR")
             success = False
             
+        # 测试MCP persona工具
+        print_status("测试MCP persona工具...", "INFO")
+        if self._test_mcp_persona_service():
+            print_status("✓ MCP persona工具测试通过", "SUCCESS")
+        else:
+            print_status("✗ MCP persona工具测试失败", "ERROR")
+            success = False
+            
         # 运行统一测试脚本
         print_status("运行完整测试套件...", "INFO")
         try:
@@ -556,6 +564,58 @@ python3 deploy_all_tools.py start
             return response.status_code == 200
         except:
             return False
+            
+    def _test_mcp_persona_service(self) -> bool:
+        """测试MCP persona服务"""
+        # 检查mcp-persona-uozumi项目的构建状态
+        mcp_dir = Path("mcp-persona-uozumi")
+        if not mcp_dir.exists():
+            print_status("✗ MCP persona项目目录不存在", "ERROR")
+            return False
+            
+        # 检查必要的配置文件
+        required_files = [
+            "package.json",
+            "src/server.ts",
+            "dist/server.js"
+        ]
+        
+        for file in required_files:
+            file_path = mcp_dir / file
+            if not file_path.exists():
+                print_status(f"✗ 缺少必要文件: {file}", "ERROR")
+                return False
+                
+        # 检查karlach persona配置文件
+        karlach_config_dir = Path("configs/personas/karlach")
+        if not karlach_config_dir.exists():
+            print_status("✗ Karlach persona配置目录不存在", "ERROR")
+            return False
+            
+        karlach_required_files = [
+            "persona.md",
+            "levels.v1.json",
+            "buckets.v1.json",
+            "karlach_worldbook.zh.json",
+            "freeplay_templates.v1.json",
+            "persona.meta.json",
+            "persona.meta.yaml"
+        ]
+        
+        for file in karlach_required_files:
+            file_path = karlach_config_dir / file
+            if not file_path.exists():
+                print_status(f"✗ 缺少karlach配置文件: {file}", "ERROR")
+                return False
+                
+        # 检查TypeScript编译结果
+        dist_file = mcp_dir / "dist" / "server.js"
+        if not dist_file.exists():
+            print_status("✗ TypeScript编译文件不存在，请运行 npm run build", "ERROR")
+            return False
+            
+        print_status("✓ MCP persona服务配置验证通过", "SUCCESS")
+        return True
             
     def show_status(self) -> bool:
         """显示服务状态"""

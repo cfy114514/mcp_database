@@ -12,6 +12,12 @@
       "prompt": "uozumi-system",
       "args": { "user": "cfy114514", "char": "Uozumi" },
       "when": "onSessionStart"
+    },
+    {
+      "server": "uozumi-persona",
+      "prompt": "karlach-system",
+      "args": { "user": "cfy114514", "char": "卡菈克" },
+      "when": "onSessionStart"
     }
   ]
 }

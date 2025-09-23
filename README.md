@@ -29,10 +29,20 @@ mcp_memory_manager.py               — 统一管理脚本
 ### 👥 **角色人设服务**
 ```
 mcp-persona-uozumi/
-├── src/server.ts              — TypeScript MCP服务器
+├── src/server.ts              — TypeScript MCP服务器 (支持多角色)
 ├── dist/server.js             — 编译后的服务器
 ├── personas_uozumi.md         — 仓桥卯月角色设定
-└── personas_luoluo.md         — 络络角色设定
+├── personas_luoluo.md         — 络络角色设定
+└── xiaozhi.mcp.config.example.json — MCP客户端配置示例
+
+configs/personas/karlach/      — 🆕 Karlach角色配置
+├── persona.md                 — 角色基本信息
+├── levels.v1.json             — 26级等级系统  
+├── buckets.v1.json            — 5种情绪状态系统
+├── karlach_worldbook.zh.json  — 世界观设定
+├── freeplay_templates.v1.json — 对话模板
+├── persona.meta.json          — 元数据配置
+└── persona.meta.yaml          — YAML格式元数据
 ```
 
 ## 🚀 快速开始
@@ -136,9 +146,11 @@ npm run build
 └── knowledge_base_mcp.py             - 知识库MCP接口
 
 👤 角色人设服务 (Node.js MCP)
-├── mcp-persona-uozumi/src/server.ts  - TypeScript MCP服务器
+├── mcp-persona-uozumi/src/server.ts  - TypeScript MCP服务器 (多角色支持)
 ├── personas_uozumi.md                - 仓桥卯月角色设定
-└── personas_luoluo.md                - 络络角色设定
+├── personas_luoluo.md                - 络络角色设定  
+├── 🆕 karlach角色支持               - 完整BG3角色配置 (9个专用MCP工具)
+└── xiaozhi.mcp.config.example.json  - MCP客户端配置示例
 ```
 
 ### 🔄 **服务管理命令**
@@ -334,8 +346,30 @@ enhanced_prompt = build_prompt_with_context(
   "tool": "get_persona_info",
   "description": "获取指定角色的详细人设信息",
   "parameters": {
-    "persona_name": "角色名称 (uozumi/luoluo)"
+    "persona_name": "角色名称 (uozumi/luoluo/karlach)"
   },
+  "returns": "角色的详细人设描述"
+}
+```
+
+##### 🆕 **Karlach专用工具** (新增9个工具)
+
+###### Karlach角色信息工具
+- `get_karlach_persona` - 获取角色基本信息
+- `get_karlach_system_prompt` - 获取系统提示词 
+- `get_karlach_safety_guidelines` - 获取安全指导原则
+
+###### Karlach游戏系统工具
+- `get_karlach_levels` - 获取26级等级系统
+- `get_karlach_buckets` - 获取5种情绪状态系统
+
+###### Karlach世界观工具
+- `list_karlach_worldbook_entries` - 列出所有世界书条目
+- `get_karlach_worldbook_entry` - 获取特定世界书条目
+- `search_karlach_worldbook` - 搜索世界书内容
+
+###### Karlach对话模板工具
+- `get_karlach_templates` - 获取所有对话模板
   "returns": "角色的详细人设描述"
 }
 ```
@@ -697,17 +731,49 @@ response = requests.post("http://localhost:8000/add", json={
 # 通过MCP协议调用角色服务
 from mcp.client import Client
 
-# 获取角色系统提示
-prompt = await client.call_tool("get_uozumi_system_prompt", {
-    "user_name": "用户",
-    "char_name": "卯月"
+# 🔥 Karlach角色工具 (新增)
+karlach_persona = await client.call_tool("get_karlach_persona")
+karlach_levels = await client.call_tool("get_karlach_levels")
+karlach_buckets = await client.call_tool("get_karlach_buckets")
+karlach_worldbook = await client.call_tool("list_karlach_worldbook_entries")
+
+# 获取Karlach系统提示
+karlach_prompt = await client.call_tool("get_karlach_system_prompt", {
+    "user": "用户名",
+    "char": "卡菈克"
 })
 
-# 获取角色回复
-response = await client.call_tool("get_uozumi_response", {
-    "user_input": "你好，卯月",
-    "context": "日常对话"
+# Uozumi角色工具
+uozumi_prompt = await client.call_tool("get_uozumi_system_prompt", {
+    "user": "用户",
+    "char": "卯月"
 })
+
+# Luoluo角色工具
+luoluo_prompt = await client.call_tool("get_luoluo_system_prompt", {
+    "user": "用户", 
+    "char": "络络"
+})
+```
+
+#### 🆕 Karlach专用工具
+```python
+# 📖 角色信息和设定
+await client.call_tool("get_karlach_persona")          # 角色基本信息
+await client.call_tool("get_karlach_system_prompt")    # 系统提示词
+await client.call_tool("get_karlach_safety_guidelines") # 安全指导原则
+
+# 🎮 游戏系统
+await client.call_tool("get_karlach_levels")           # 26级等级系统
+await client.call_tool("get_karlach_buckets")          # 5种情绪状态
+
+# 🌍 世界观设定
+await client.call_tool("list_karlach_worldbook_entries") # 世界书条目列表
+await client.call_tool("get_karlach_worldbook_entry", {"id": "条目ID"}) # 特定条目
+await client.call_tool("search_karlach_worldbook", {"query": "搜索词"}) # 搜索世界书
+
+# 💬 对话模板
+await client.call_tool("get_karlach_templates")        # 所有对话模板
 ```
 
 ## 🔧 配置说明
@@ -769,7 +835,20 @@ python test_embedding_memory.py filter     # 元数据过滤测试
 python test_embedding_memory.py integration # 端到端集成测试
 ```
 
-### 📊 **系统监控**
+### � **Karlach专项测试** (新增)
+
+```bash
+# 🧪 快速验证Karlach集成
+python test_karlach_integration.py
+
+# 🎭 Karlach功能演示
+python demo_karlach_integration.py
+
+# 📋 查看Karlach可用工具
+# 启动MCP服务器后通过MCP协议查看9个karlach专用工具
+```
+
+### �📊 **系统监控**
 
 #### 查看服务状态
 ```bash
@@ -1079,6 +1158,55 @@ def calculate_importance(self, text: str, context: str = "") -> float:
 python deploy_all_tools.py check > system_diagnostic.txt
 python deploy_all_tools.py status >> system_diagnostic.txt
 ```
+
+---
+
+## 🔄 更新日志
+
+### 🆕 **2024年12月27日更新**
+
+#### ✨ **主要新增功能**
+
+1. **🔥 Karlach角色MCP工具集成**
+   - 完全集成Karlach角色到MCP工具链
+   - 新增9个专用MCP工具：角色信息、系统提示、安全指导、世界观设定、等级系统、情绪桶、对话模板等
+   - 支持26级等级系统和5种情绪状态
+   - 完整的BG3(博德之门3)世界观设定
+   - 与现有uozumi和luoluo角色完全兼容
+
+2. **🧹 项目清理优化**
+   - 清理删除了40个空文件，优化项目结构
+   - 保留虚拟环境中的必要标记文件
+   - 提升项目整洁度和维护性
+
+3. **🔧 测试系统增强**
+   - 新增MCP persona工具专项测试
+   - 增加karlach配置文件验证
+   - 完善统一测试流程
+
+#### 📁 **新增文件**
+- `configs/personas/karlach/` - 完整karlach角色配置目录
+- `KARLACH_INTEGRATION_REPORT.md` - 详细的集成报告文档
+- `test_karlach_integration.py` - 专门的karlach集成测试
+- `demo_karlach_integration.py` - karlach功能演示脚本
+
+#### 🛠️ **技术改进**
+- TypeScript MCP服务器支持多角色架构
+- 统一的配置文件验证机制
+- 扩展性架构设计，便于添加更多角色
+
+#### 🎯 **使用方式**
+现在可以通过MCP协议访问karlach的所有功能：
+```bash
+# 启动MCP服务器
+cd mcp-persona-uozumi
+npm start
+
+# 测试karlach工具
+python test_karlach_integration.py
+```
+
+---
 
 ---
 

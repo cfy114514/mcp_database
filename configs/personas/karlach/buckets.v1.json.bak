@@ -18,10 +18,10 @@
         "micro": [
           "说重点。",
           "别绕。",
-          "现在，要出发还是先侦查？"
+          "现在。走。"
         ],
         "macro": [
-          { "id": "curt_next_step", "text": "别磨舌。下一步。" },
+          { "id": "curt_next_step", "text": "别磨舌。下一步." },
           { "id": "curt_block", "text": "到此为止。" }
         ]
       },
@@ -169,7 +169,7 @@
       "你找错人了。"
     ]
   },
-
+  
   "situational_triggers": [
     {
       "match": { "any_keywords": ["走", "离开", "撤退", "前进", "往前", "出发", "动身", "出发吧", "前往", "离去"] },
@@ -178,7 +178,7 @@
       "description": "检测到移动/离开意图时，优先触发 narrator_move 情境模板以生成三行式旁白/角色/选项回复"
     }
   ],
-
+  
   "template_blacklist": [
     "走。",
     "现在。走。",
@@ -186,7 +186,7 @@
     "现在。立刻。马上。"
   ],
   "blacklist_penalty": 0.35,
-
+  
   "context_awareness": {
     "recent_topics": {
       "track_last_n": 5,
@@ -197,33 +197,3 @@
       "track_mood_changes": true,
       "smoothing_factor": 0.7,
       "volatility_threshold": 0.3
-    },
-    "conversational_flow": {
-      "prefer_continuity": true,
-      "allow_topic_shifts": true,
-      "bridge_responses": [
-        "算了，说别的。",
-        "换个话题。",
-        "先放一边。"
-      ]
-    }
-  },
-  "advanced_selection": {
-    "multi_bucket_sampling": {
-      "enabled": true,
-      "blend_threshold": 0.15,
-      "max_blend_buckets": 2
-    },
-    "contextual_boost": {
-      "combat_keywords": ["战斗", "敌人", "攻击"],
-      "boost_buckets": ["Gruff", "Resolute"],
-      "boost_amount": 0.1
-    },
-    "fatigue_simulation": {
-      "track_interaction_count": true,
-      "fatigue_threshold": 20,
-      "fatigue_effect": { "Curt": 0.1, "Warm": -0.05 }
-    }
-  },
-  "telemetry": { "log_fields": ["chosen_bucket", "weights_before", "weights_after", "signals"], "sample_ratio": 0.1 }
-}

@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 import time
 import json
 from knowledge_base_service import VectorDatabase, Document
+from tools.tagger import infer_tags
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -93,6 +94,10 @@ class DocumentImporter:
             retry_delay: 重试延迟（秒）
             exponential_backoff: 是否使用指数退避策略
         """
+        # 自动推断和增强标签/元数据
+        filename = metadata.get('source', 'unknown_file') if metadata else 'unknown_file'
+        final_tags, enhanced_metadata = infer_tags(content, filename, metadata)
+
         chunks = self.split_document(content)
         self.stats["total_documents"] += len(chunks)
         
@@ -117,19 +122,19 @@ class DocumentImporter:
                             doc = Document(
                                 id=f"{doc_id}_sub_{sub_chunks.index(sub_chunk)}",
                                 content=sub_chunk,
-                                metadata=metadata or {},
-                                tags=metadata.get("tags", []) if metadata else []
+                                tags=final_tags,
+                                metadata=enhanced_metadata,
                             )
                             self.db.add_document(doc)
                     else:
                         doc = Document(
                             id=doc_id,
                             content=chunk,
-                            metadata=metadata or {},
-                            tags=metadata.get("tags", []) if metadata else []
+                            tags=final_tags,
+                            metadata=enhanced_metadata,
                         )
                         self.db.add_document(doc)
-                    
+
                     self.stats["successful_imports"] += 1
                     self.stats["last_successful_id"] = doc_id
                     self._save_progress()  # 保存进度

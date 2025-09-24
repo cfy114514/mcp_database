@@ -1,0 +1,11 @@
+# Source chunks for Karlach configs and kalake
+
+Files included:
+- kalake.txt
+- configs/personas/karlach/freeplay_templates.v1.json
+- configs/personas/karlach/buckets.v1.json
+- configs/personas/karlach/levels.v1.json
+- configs/personas/karlach/persona.md
+- configs/personas/karlach/karlach_worldbook.zh.json
+
+# Purpose: intermediate staging for chunking and embedding import

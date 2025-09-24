@@ -1,0 +1,48 @@
+{
+  "path_map": {
+    "persona.txt": ["role:karlach", "type:persona"],
+    "levels.v1.txt": ["role:karlach", "type:levels"],
+    "buckets.v1.json": ["role:karlach", "type:buckets"],
+    "freeplay_templates.v1.json": ["role:karlach", "type:templates"],
+    "karlach_worldbook.zh.json": ["role:karlach", "type:worldbook"],
+    "xingfa": ["domain:legal", "type:law", "law:xingfa"]
+  },
+  "keyword_map": {
+    "地狱引擎": ["topic:infernal_engine"],
+    "扎瑞尔": ["npc:zariel"],
+    "戴蒙": ["npc:dammon"],
+    "戈塔什": ["npc:gortash"],
+    "威尔": ["npc:wyll"],
+    "刑法": ["domain:legal", "type:law"],
+    "民法": ["domain:legal", "type:law"],
+    "关卡": ["type:levels"],
+    "等级": ["type:levels"],
+    "模板": ["type:templates"],
+    "人设": ["type:persona"]
+  },
+  "regex_map": {
+    "第[一二三四五六七八九十百]+条": ["content:law_article"]
+  },
+  "default_tags": ["source:origin"],
+  "enforcement_rules": {
+    "tags": ["role:karlach", "type:persona", "type:levels", "type:buckets"],
+    "keywords": ["强制执行", "必须调用"]
+  },
+  "importance_rules": {
+    "high": {
+      "tags": ["type:persona", "type:safety"],
+      "keywords": ["核心设定", "安全准则"]
+    },
+    "medium": {
+      "tags": ["type:levels", "type:buckets", "type:worldbook"],
+      "keywords": ["关卡", "世界书"]
+    },
+    "low": {
+      "tags": ["type:templates"],
+      "keywords": ["示例", "口吻"]
+    }
+  },
+  "conflict_rules": {
+    "role": 1 
+  }
+}

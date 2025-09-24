@@ -1,0 +1,1 @@
+示例预览：buckets.v1.json 已另存为 .txt，保留 JSON 文本以便切片与嵌入处理。

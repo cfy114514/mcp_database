@@ -35,21 +35,40 @@ except Exception as e:
     raise
 
 @mcp.tool()
-def search_documents(query: str, tags: Optional[List[str]] = None, top_k: Optional[int] = 5, metadata_filter: Optional[Dict] = None) -> dict:
-    """搜索文档。
+def search_documents(
+    query: str, 
+    tags_all: Optional[List[str]] = None, 
+    tags_any: Optional[List[str]] = None,
+    priority_tags: Optional[List[str]] = None,
+    top_k: Optional[int] = 5, 
+    metadata_filter: Optional[Dict] = None,
+    tags: Optional[List[str]] = None # For backward compatibility
+) -> dict:
+    """
+    Searches documents in the knowledge base with advanced filtering.
+    
     Args:
-        query: 搜索查询文本
-        tags: 可选的标签列表进行过滤
-        top_k: 返回的最大结果数量
-        metadata_filter: 可选的元数据过滤条件
+        query: The natural language search query.
+        tags_all: A list of tags that must all be present in the results (AND logic).
+        tags_any: A list of tags where at least one must be present in the results (OR logic).
+        priority_tags: A list of tags to boost the score of, making them more likely to appear first.
+        top_k: The maximum number of results to return.
+        metadata_filter: Optional dictionary of metadata to filter results.
+        tags: Kept for backward compatibility, behaves like tags_all.
 
     Returns:
-        包含搜索结果的字典
+        A dictionary containing the search results.
     """
     try:
+        # Handle backward compatibility for the 'tags' parameter
+        if tags and not tags_all:
+            tags_all = tags
+
         results = db.search(
             query=query, 
-            tags=tags, 
+            tags_all=tags_all,
+            tags_any=tags_any,
+            priority_tags=priority_tags,
             top_k=top_k if top_k is not None else 5,
             metadata_filter=metadata_filter
         )
@@ -65,27 +84,44 @@ def search_documents(query: str, tags: Optional[List[str]] = None, top_k: Option
         }
 
 @mcp.tool()
-def add_document(doc_id: str, content: str, tags: List[str], metadata: Optional[Dict] = None) -> dict:
-    """添加新文档到知识库。
+def add_document(content: str, tags: List[str], doc_id: Optional[str] = None, metadata: Optional[Dict] = None) -> dict:
+    """
+    Adds a new document to the knowledge base.
+    
     Args:
-        doc_id: 文档唯一标识符
-        content: 文档内容
-        tags: 文档标签列表
-        metadata: 可选的元数据字典
+        content: The text content of the document.
+        tags: A list of tags to associate with the document.
+        doc_id: An optional unique ID for the document. If not provided, one will be generated.
+        metadata: Optional dictionary of metadata.
 
     Returns:
-        操作结果字典
+        A dictionary with the result of the operation.
     """
     try:
+        # If doc_id is not provided, the service will generate one.
+        # We need to create a temporary one for the Pydantic model, but the service's will be canonical.
+        import time
+        temp_id = doc_id if doc_id else f"temp_{int(time.time() * 1000)}"
+
         document = Document(
-            id=doc_id,
+            id=temp_id,
             content=content,
             tags=tags,
             metadata=metadata
         )
+        
+        # The service's add_document now handles ID generation if not provided
+        # and returns the final document ID.
+        # We need to adapt to this if we want to use the service layer directly.
+        # For now, we'll stick to the db layer which has a simpler `add_document`
         success = db.add_document(document)
+        
+        # If we were using the service endpoint, the logic would be different.
+        # This MCP tool directly interacts with the DB layer.
+        
         return {
             "success": success,
+            "document_id": document.id,
             "message": "Document added successfully" if success else "Failed to add document"
         }
     except Exception as e:

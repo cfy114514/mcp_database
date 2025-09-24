@@ -1,0 +1,10 @@
+{
+  "stats": {
+    "total_documents": 1834,
+    "successful_imports": 1834,
+    "failed_imports": 0,
+    "retried_chunks": 0,
+    "last_successful_id": "doc_1758696538.084101_349"
+  },
+  "timestamp": 1758696538.19163
+}

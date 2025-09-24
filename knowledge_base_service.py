@@ -28,7 +28,10 @@ class Document(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = None # Kept for backward compatibility
+    tags_all: Optional[List[str]] = None
+    tags_any: Optional[List[str]] = None
+    priority_tags: Optional[List[str]] = None
     top_k: Optional[int] = 5
     metadata_filter: Optional[Dict] = None
 
@@ -71,7 +74,7 @@ class EmbeddingAPI:
             raise
 
 class VectorDatabase:
-    def __init__(self, dimension: int = 1024):
+    def __init__(self, dimension: int = 1024, data_dir: Optional[str] = None):
         self.embedding_api = EmbeddingAPI()
         self.dimension = dimension
         self.vectors = []
@@ -79,42 +82,62 @@ class VectorDatabase:
         self.document_ids = []
         self.tag_index = {}
         
-        # 使用项目根目录的 data 文件夹
-        # 通过查找 mcp_config.json 确定项目根目录
-        current_dir = Path(__file__).parent
-        while current_dir.parent != current_dir:  # 向上查找，直到到达根目录
-            if (current_dir / "mcp_config.json").exists():
-                break
-            current_dir = current_dir.parent
-        self.data_dir = current_dir / "data"
-        self.data_dir.mkdir(exist_ok=True)
+        if data_dir:
+            self.data_dir = Path(data_dir)
+        else:
+            # 将数据目录固定在仓库内的 data 子目录
+            repo_root = Path(__file__).parent
+            self.data_dir = repo_root / "data"
+        
+        try:
+            self.data_dir.mkdir(exist_ok=True)
+        except Exception as e:
+            logger.warning(f"无法创建 data 目录 ({self.data_dir}): {e}")
+        logger.info(f"VectorDatabase data_dir set to: {self.data_dir.resolve()}")
         self._load_data()
 
     def _load_data(self):
         vectors_file = self.data_dir / "vectors.npy"
         docs_file = self.data_dir / "documents.json"
         
+        # Load documents if the file exists, regardless of vectors
+        if docs_file.exists():
+            try:
+                with open(docs_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Handle both list and dict formats
+                    if isinstance(data, list):
+                        self.documents = {doc['id']: Document(**doc) for doc in data if 'id' in doc}
+                    else:
+                        self.documents = {k: Document(**v) for k, v in data.items()}
+                    
+                    self.document_ids = list(self.documents.keys())
+                    self._rebuild_tag_index()
+                logger.info(f"成功加载 {len(self.documents)} 个文档")
+            except Exception as e:
+                logger.error(f"加载文档数据时出错: {e}")
+                self.documents = {}
+                self.document_ids = []
+                self.tag_index = {}
+
+        # Load vectors only if both files exist
         if vectors_file.exists() and docs_file.exists():
             try:
                 # 加载向量数据
                 loaded_vectors = np.load(str(vectors_file))
                 self.vectors = [vec for vec in loaded_vectors]  # 转换为列表
                 
-                # 加载文档数据
-                with open(docs_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.documents = {k: Document(**v) for k, v in data.items()}
-                    self.document_ids = list(self.documents.keys())
-                    self._rebuild_tag_index()
-                
-                logger.info(f"成功加载 {len(self.vectors)} 个向量和 {len(self.documents)} 个文档")
+                # Verify vector and document count match
+                if len(self.vectors) != len(self.documents):
+                    logger.warning(f"向量数量 ({len(self.vectors)}) 与文档数量 ({len(self.documents)}) 不匹配。可能需要重建向量。")
+
+                logger.info(f"成功加载 {len(self.vectors)} 个向量")
             except Exception as e:
-                logger.error(f"加载数据时出错: {e}")
-                # 如果加载失败，初始化空数据
+                logger.error(f"加载向量数据时出错: {e}")
                 self.vectors = []
-                self.documents = {}
-                self.document_ids = []
-                self.tag_index = {}
+        else:
+            # If vectors don't exist, ensure the list is empty
+            self.vectors = []
 
     def _save_data(self):
         """保存数据到磁盘"""
@@ -163,63 +186,92 @@ class VectorDatabase:
             logger.error(f"Error adding document: {e}")
             return False
 
-    def search(self, query: str, tags: Optional[List[str]] = None, top_k: int = 5, metadata_filter: Optional[Dict] = None) -> List[Document]:
+    def search(self, query: str, tags: Optional[List[str]] = None, top_k: int = 5, metadata_filter: Optional[Dict] = None,
+             tags_all: Optional[List[str]] = None, tags_any: Optional[List[str]] = None, 
+             priority_tags: Optional[List[str]] = None, boost: float = 1.5) -> List[Document]:
         try:
-            candidate_ids = None
-            if tags:
-                for tag in tags:
-                    if tag in self.tag_index:
-                        if candidate_ids is None:
-                            candidate_ids = self.tag_index[tag].copy()
-                        else:
-                            candidate_ids &= self.tag_index[tag]
+            # --- Backward compatibility ---
+            if tags and not tags_all:
+                tags_all = tags
+
+            # --- Tag Filtering Logic ---
+            candidate_ids = set(self.document_ids) # Start with all documents
+
+            # Filter by tags_all (AND logic)
+            if tags_all:
+                all_candidates = set()
+                # Get the intersection of documents for all tags in tags_all
+                initial_tag = tags_all[0]
+                all_candidates.update(self.tag_index.get(initial_tag, set()))
+                for tag in tags_all[1:]:
+                    all_candidates.intersection_update(self.tag_index.get(tag, set()))
+                candidate_ids.intersection_update(all_candidates)
+
+            # Filter by tags_any (OR logic)
+            if tags_any:
+                any_candidates = set()
+                for tag in tags_any:
+                    any_candidates.update(self.tag_index.get(tag, set()))
                 
-                if not candidate_ids:
-                    return []
+                # If tags_all was also present, we take the intersection.
+                # If only tags_any is present, this becomes the candidate set.
+                if tags_all:
+                    candidate_ids.intersection_update(any_candidates)
+                else:
+                    candidate_ids = any_candidates
+
+            if not candidate_ids:
+                logger.warning("No candidates found after tag filtering.")
+                return []
             
             query_vector = self.embedding_api.create_embedding(query)
-            
-            # 确保query_vector是numpy数组
             query_vector = np.array(query_vector, dtype=np.float32)
             
-            # 标准化查询向量
+            # Ensure query_vector is normalized
             query_vector_norm = np.linalg.norm(query_vector)
             if query_vector_norm > 0:
-                query_vector = query_vector / query_vector_norm
+                query_vector /= query_vector_norm
             
+            candidate_indices = [self.document_ids.index(doc_id) for doc_id in candidate_ids]
+
             scores = []
-            for i, vec in enumerate(self.vectors):
-                # 确保文档向量也是标准化的
+            for i in candidate_indices:
+                vec = self.vectors[i]
                 vec = np.array(vec, dtype=np.float32)
+                
+                # CRITICAL FIX: Normalize document vectors before dot product
                 vec_norm = np.linalg.norm(vec)
                 if vec_norm > 0:
-                    vec = vec / vec_norm
+                    vec /= vec_norm
                 
-                # 计算余弦相似度
                 similarity = np.dot(query_vector, vec)
                 doc_id = self.document_ids[i]
                 
-                # 检查候选文档集合（基于标签过滤）
-                if candidate_ids is not None and doc_id not in candidate_ids:
-                    continue
-                
-                # 检查元数据过滤
-                if metadata_filter:
-                    doc = self.documents[doc_id]
-                    if not self._matches_metadata_filter(doc.metadata, metadata_filter):
-                        continue
-                
-                scores.append((similarity, i))
+                # --- Priority Boost ---
+                if priority_tags and any(pt in self.documents[doc_id].tags for pt in priority_tags):
+                    similarity *= boost
+
+                scores.append((similarity, doc_id))
             
-            scores.sort(reverse=True)
+            # Sort by score descending
+            scores.sort(key=lambda x: x[0], reverse=True)
+            
+            # Get top_k results
+            top_k_results = scores[:top_k]
+            
+            # Filter by metadata if provided
             results = []
-            for similarity, idx in scores[:top_k]:
-                doc_id = self.document_ids[idx]
-                results.append(self.documents[doc_id])
+            for score, doc_id in top_k_results:
+                doc = self.documents[doc_id]
+                if metadata_filter:
+                    # Safely check metadata
+                    if not doc.metadata or not all(doc.metadata.get(key) == value for key, value in metadata_filter.items()):
+                        continue
+                results.append(doc)
             
             return results
         except Exception as e:
-            logger.error(f"Error searching documents: {e}")
+            logger.error(f"Error during search: {e}")
             return []
 
     def _rebuild_tag_index(self):
@@ -229,6 +281,27 @@ class VectorDatabase:
                 if tag not in self.tag_index:
                     self.tag_index[tag] = set()
                 self.tag_index[tag].add(doc_id)
+
+    def _rebuild_tag_index_from_docs(self, documents: List[Union[Document, Dict]]):
+        """Helper to rebuild tag index from a specific list of documents."""
+        self.tag_index = {}
+        for doc in documents:
+            doc_id = None
+            tags = []
+            if isinstance(doc, Document):
+                doc_id = doc.id
+                tags = doc.tags
+            elif isinstance(doc, dict):
+                doc_id = doc.get('id')
+                tags = doc.get('tags', [])
+
+            if not doc_id or not tags:
+                continue
+            for tag in tags:
+                if isinstance(tag, str):
+                    if tag not in self.tag_index:
+                        self.tag_index[tag] = set()
+                    self.tag_index[tag].add(doc_id)
 
     def _matches_metadata_filter(self, doc_metadata: Optional[Dict], filter_criteria: Dict) -> bool:
         """
@@ -280,7 +353,10 @@ async def search_documents(request: SearchRequest):
             query=request.query,
             tags=request.tags,
             top_k=request.top_k if request.top_k is not None else 5,
-            metadata_filter=request.metadata_filter
+            metadata_filter=request.metadata_filter,
+            tags_all=request.tags_all,
+            tags_any=request.tags_any,
+            priority_tags=request.priority_tags
         )
         return SearchResponse(success=True, results=results)
     except Exception as e:

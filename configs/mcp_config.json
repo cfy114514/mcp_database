@@ -1,26 +1,26 @@
 {
   "mcpServers": {
-    "persona-uozumi": {
+    "node": {
       "command": "node",
       "args": ["./mcp-persona-uozumi/dist/server.js"],
       "cwd": "c:/Users/Administrator/Documents/mcp_database",
       "env": {
         "NODE_ENV": "production"
       },
-      "description": "Uozumi 和 Luoluo 角色人设服务（已合并）",
+      "description": "角色人设服务 (Karlach, Uozumi, Luoluo)",
       "capabilities": ["tools"],
       "restart": true,
       "restartDelay": 3000
     },
-    "knowledge-base": {
+    "KnowledgeBase": {
       "command": "python",
-      "args": ["knowledge_base_mcp.py"],
+      "args": ["mcp-calculator/knowledge_base_mcp.py"],
       "cwd": "c:/Users/Administrator/Documents/mcp_database",
       "env": {
         "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
         "KB_SERVICE_URL": "http://localhost:8000"
       },
-      "description": "向量知识库 MCP 服务，提供文档搜索和存储功能",
+      "description": "向量知识库 MCP 服务",
       "capabilities": ["tools"],
       "restart": true,
       "restartDelay": 5000,
@@ -34,11 +34,11 @@
         "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
         "KB_SERVICE_URL": "http://localhost:8000"
       },
-      "description": "上下文聚合服务，整合角色人设和用户记忆",
+      "description": "传统上下文聚合服务",
       "capabilities": ["tools"],
       "restart": true,
       "restartDelay": 3000,
-      "dependsOn": ["persona-uozumi", "knowledge-base"]
+      "dependsOn": ["node", "KnowledgeBase"]
     },
     "embedding-context-aggregator": {
       "command": "python",
@@ -48,11 +48,11 @@
         "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
         "KB_SERVICE_URL": "http://localhost:8001"
       },
-      "description": "基于Embedding的记忆库上下文聚合服务",
+      "description": "纯Embedding记忆上下文聚合服务",
       "capabilities": ["tools"],
       "restart": true,
       "restartDelay": 3000,
-      "dependsOn": ["persona-uozumi", "embedding-memory-http"]
+      "dependsOn": ["node", "embedding-memory-http"]
     }
   },
   "httpServices": {

@@ -61,8 +61,22 @@ class Tagger:
             normalized_metadata_tags = self._normalize_tags(metadata_tags)
             final_tags.update(normalized_metadata_tags)
 
-        # 5. Infer enforcement and importance
+        # 5. Infer document type, enforcement, and importance
         enhanced_metadata = metadata.copy()
+
+        # Document Type (respect existing value)
+        if 'doc_type' not in enhanced_metadata or not enhanced_metadata['doc_type']:
+            doc_type_rules = self.schema.get('doc_type_rules', {})
+            inferred_doc_type = doc_type_rules.get('default', 'unknown')
+            for type_name, rules in doc_type_rules.items():
+                if type_name == 'default':
+                    continue
+                if any(tag in final_tags for tag in rules.get('tags', [])) or \
+                   any(kw in content for kw in rules.get('keywords', [])) or \
+                   any(part in filename for part in rules.get('path_parts', [])):
+                    inferred_doc_type = type_name
+                    break # First match wins
+            enhanced_metadata['doc_type'] = inferred_doc_type
         
         # Enforcement
         enforcement_rules = self.schema.get('enforcement_rules', {})

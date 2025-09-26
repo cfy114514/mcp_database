@@ -311,8 +311,11 @@ class EmbeddingMemoryProcessor:
             logger.error(f"保存记忆片段时出错: {e}")
             return False
     
-    def process_and_save_conversation(self, conversation: str, user_id: str, min_importance: float = 3.0) -> Dict:
-        """处理对话并保存有价值的记忆"""
+    def process_and_save_conversation(self, conversation: str, user_id: str, min_importance: float = 0.0) -> Dict:
+        """
+        处理对话并保存有价值的记忆。
+        默认保存所有提取到的记忆 (min_importance=0.0)。
+        """
         try:
             # 提取记忆片段
             memories = self.process_conversation_memories(conversation, user_id)

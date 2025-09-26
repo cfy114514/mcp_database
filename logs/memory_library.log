@@ -1,0 +1,8 @@
+INFO:KnowledgeBase:VectorDatabase data_dir set to: C:\Users\Administrator\Documents\mcp_database\data
+INFO:KnowledgeBase:成功加载 463 个文档
+INFO:KnowledgeBase:成功加载 463 个向量
+INFO:     Started server process [8452]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:10273 - "GET /docs HTTP/1.1" 200 OK

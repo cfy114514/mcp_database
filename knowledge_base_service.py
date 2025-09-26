@@ -12,6 +12,7 @@ from numpy.linalg import norm
 import os
 import uvicorn
 import time
+import faiss  # 导入faiss
 
 # 加载环境变量
 load_dotenv()
@@ -81,6 +82,7 @@ class VectorDatabase:
         self.documents = {}
         self.document_ids = []
         self.tag_index = {}
+        self.index = None  # FAISS索引
         
         if data_dir:
             self.data_dir = Path(data_dir)
@@ -95,6 +97,8 @@ class VectorDatabase:
             logger.warning(f"无法创建 data 目录 ({self.data_dir}): {e}")
         logger.info(f"VectorDatabase data_dir set to: {self.data_dir.resolve()}")
         self._load_data()
+        if self.vectors:
+            self.rebuild_index()
 
     def _load_data(self):
         vectors_file = self.data_dir / "vectors.npy"
@@ -146,6 +150,14 @@ class VectorDatabase:
             docs_file = self.data_dir / "documents.json"
             
             # 确保向量是numpy数组并保存
+            if not self.vectors:
+                logger.info("没有向量数据需要保存。")
+                # 如果没有向量，但有文档，则清空文档文件
+                if docs_file.exists():
+                    with open(docs_file, 'w', encoding='utf-8') as f:
+                        json.dump({}, f)
+                return
+
             vectors_array = np.array(self.vectors, dtype=np.float32)
             np.save(str(vectors_file), vectors_array)
             
@@ -157,8 +169,11 @@ class VectorDatabase:
         except Exception as e:
             logger.error(f"保存数据时出错: {e}")
 
-    def add_document(self, document: Document) -> bool:
-        """添加文档到数据库"""
+    def add_document(self, document: Document, save: bool = False) -> bool:
+        """
+        添加文档到数据库。
+        注意：为了性能，默认不立即保存。
+        """
         try:
             # 使用 API 生成文档向量
             vector = self.embedding_api.create_embedding(document.content)
@@ -179,100 +194,138 @@ class VectorDatabase:
                     self.tag_index[tag] = set()
                 self.tag_index[tag].add(document.id)
             
-            # 保存数据
-            self._save_data()
+            if save:
+                self._save_data()
+                self.rebuild_index() # 如果保存，则重建索引
+
             return True
         except Exception as e:
             logger.error(f"Error adding document: {e}")
             return False
 
+    def batch_add_documents(self, documents: List[Document]) -> bool:
+        """批量添加文档并保存"""
+        try:
+            contents = [doc.content for doc in documents]
+            # 假设embedding_api支持批量处理，如果不支持，则需要循环调用
+            # 这里为了简化，我们循环调用
+            vectors = [self.embedding_api.create_embedding(content) for content in contents]
+
+            for i, document in enumerate(documents):
+                vector = np.array(vectors[i], dtype=np.float32)
+                self.vectors.append(vector)
+                self.documents[document.id] = document
+                self.document_ids.append(document.id)
+                for tag in document.tags:
+                    if tag not in self.tag_index:
+                        self.tag_index[tag] = set()
+                    self.tag_index[tag].add(document.id)
+            
+            self._save_data()
+            self.rebuild_index()
+            logger.info(f"成功批量添加 {len(documents)} 个文档并重建索引。")
+            return True
+        except Exception as e:
+            logger.error(f"批量添加文档时出错: {e}")
+            return False
+
+    def rebuild_index(self):
+        """使用当前向量重建FAISS索引"""
+        if not self.vectors:
+            logger.info("没有向量可用于构建索引。")
+            self.index = None
+            return
+
+        logger.info(f"开始为 {len(self.vectors)} 个向量重建FAISS索引...")
+        try:
+            vectors_np = np.array(self.vectors, dtype='float32')
+            self.index = faiss.IndexFlatL2(self.dimension)  # 使用L2距离
+            self.index.add(vectors_np)
+            logger.info(f"FAISS索引重建完成，共 {self.index.ntotal} 个向量。")
+        except Exception as e:
+            logger.error(f"重建FAISS索引时出错: {e}")
+            self.index = None
+
     def search(self, query: str, tags: Optional[List[str]] = None, top_k: int = 5, metadata_filter: Optional[Dict] = None,
              tags_all: Optional[List[str]] = None, tags_any: Optional[List[str]] = None, 
-             priority_tags: Optional[List[str]] = None, boost: float = 1.5) -> List[Document]:
+             priority_tags: Optional[List[str]] = None, boost: float = 1.5) -> List[Dict]:
+        
+        if not self.index:
+            logger.warning("FAISS索引未初始化，无法执行搜索。")
+            return []
+
         try:
             # --- Backward compatibility ---
             if tags and not tags_all:
                 tags_all = tags
 
-            # --- Tag Filtering Logic ---
-            candidate_ids = set(self.document_ids) # Start with all documents
-
-            # Filter by tags_all (AND logic)
-            if tags_all:
-                all_candidates = set()
-                # Get the intersection of documents for all tags in tags_all
-                initial_tag = tags_all[0]
-                all_candidates.update(self.tag_index.get(initial_tag, set()))
-                for tag in tags_all[1:]:
-                    all_candidates.intersection_update(self.tag_index.get(tag, set()))
-                candidate_ids.intersection_update(all_candidates)
-
-            # Filter by tags_any (OR logic)
-            if tags_any:
-                any_candidates = set()
-                for tag in tags_any:
-                    any_candidates.update(self.tag_index.get(tag, set()))
-                
-                # If tags_all was also present, we take the intersection.
-                # If only tags_any is present, this becomes the candidate set.
-                if tags_all:
-                    candidate_ids.intersection_update(any_candidates)
-                else:
-                    candidate_ids = any_candidates
-
-            if not candidate_ids:
-                logger.warning("No candidates found after tag filtering.")
+            # --- Tag and Metadata Filtering Logic ---
+            candidate_indices = self._get_filtered_indices(metadata_filter, tags_all, tags_any)
+            
+            if not candidate_indices:
                 return []
-            
+
+            # --- FAISS Search ---
             query_vector = self.embedding_api.create_embedding(query)
-            query_vector = np.array(query_vector, dtype=np.float32)
-            
-            # Ensure query_vector is normalized
-            query_vector_norm = np.linalg.norm(query_vector)
-            if query_vector_norm > 0:
-                query_vector /= query_vector_norm
-            
-            candidate_indices = [self.document_ids.index(doc_id) for doc_id in candidate_ids]
+            query_vector_np = np.array([query_vector], dtype='float32')
 
-            scores = []
-            for i in candidate_indices:
-                vec = self.vectors[i]
-                vec = np.array(vec, dtype=np.float32)
-                
-                # CRITICAL FIX: Normalize document vectors before dot product
-                vec_norm = np.linalg.norm(vec)
-                if vec_norm > 0:
-                    vec /= vec_norm
-                
-                similarity = np.dot(query_vector, vec)
-                doc_id = self.document_ids[i]
-                
-                # --- Priority Boost ---
-                if priority_tags and any(pt in self.documents[doc_id].tags for pt in priority_tags):
-                    similarity *= boost
+            # FAISS search returns distances and indices (labels)
+            # We search for a larger k to account for post-filtering
+            search_k = min(top_k * 5, len(candidate_indices))
+            distances, indices = self.index.search(query_vector_np, search_k)
 
-                scores.append((similarity, doc_id))
-            
-            # Sort by score descending
-            scores.sort(key=lambda x: x[0], reverse=True)
-            
-            # Get top_k results
-            top_k_results = scores[:top_k]
-            
-            # Filter by metadata if provided
+            # --- Result Processing ---
             results = []
-            for score, doc_id in top_k_results:
-                doc = self.documents[doc_id]
-                if metadata_filter:
-                    # Safely check metadata
-                    if not doc.metadata or not all(doc.metadata.get(key) == value for key, value in metadata_filter.items()):
-                        continue
-                results.append(doc)
-            
+            seen_doc_ids = set()
+            candidate_id_set = {self.document_ids[i] for i in candidate_indices}
+
+            for i in range(indices.shape[1]):
+                doc_index = indices[0, i]
+                distance = distances[0, i]
+                doc_id = self.document_ids[doc_index]
+                if doc_id in candidate_id_set and doc_id not in seen_doc_ids:
+                    doc = self.documents.get(doc_id)
+                    if doc:
+                        score = 1 / (1 + distance)
+                        results.append({"document": doc, "score": score})
+                        seen_doc_ids.add(doc_id)
+                if len(results) >= top_k:
+                    break
+            results.sort(key=lambda x: x['score'], reverse=True)
             return results
+
         except Exception as e:
-            logger.error(f"Error during search: {e}")
+            logger.error(f"搜索时发生错误: {e}")
             return []
+
+    def _get_filtered_indices(self, metadata_filter, tags_all, tags_any):
+        """根据元数据和标签获取过滤后的文档索引列表"""
+        candidate_ids = set(self.document_ids)
+
+        # Metadata filtering
+        if metadata_filter:
+            filtered_by_meta = set()
+            for doc_id, doc in self.documents.items():
+                if self._matches_metadata_filter(doc.metadata, metadata_filter):
+                    filtered_by_meta.add(doc_id)
+            candidate_ids &= filtered_by_meta
+
+        # Tag filtering
+        if tags_all:
+            doc_ids_with_all_tags = set(self.document_ids)
+            for tag in tags_all:
+                doc_ids_with_all_tags &= self.tag_index.get(tag, set())
+            candidate_ids &= doc_ids_with_all_tags
+        
+        if tags_any:
+            doc_ids_with_any_tag = set()
+            for tag in tags_any:
+                doc_ids_with_any_tag.update(self.tag_index.get(tag, set()))
+            candidate_ids &= doc_ids_with_any_tag
+
+        # Convert final doc_ids to indices for numpy array
+        id_to_index = {doc_id: i for i, doc_id in enumerate(self.document_ids)}
+        return [id_to_index[doc_id] for doc_id in candidate_ids if doc_id in id_to_index]
 
     def _rebuild_tag_index(self):
         self.tag_index = {}
@@ -314,8 +367,11 @@ class VectorDatabase:
         Returns:
             bool: 是否匹配过滤条件
         """
-        if not doc_metadata or not filter_criteria:
+        if not filter_criteria:
             return True
+        
+        if not doc_metadata:
+            return False
             
         for key, expected_value in filter_criteria.items():
             if key not in doc_metadata:
@@ -342,67 +398,66 @@ class VectorDatabase:
         return True
 
 # 创建 FastAPI 应用
-app = FastAPI(title="Knowledge Base API")
+app = FastAPI()
 db = VectorDatabase()
 
-@app.post("/search", response_model=SearchResponse)
-async def search_documents(request: SearchRequest):
-    """搜索文档"""
-    try:
-        results = db.search(
-            query=request.query,
-            tags=request.tags,
-            top_k=request.top_k if request.top_k is not None else 5,
-            metadata_filter=request.metadata_filter,
-            tags_all=request.tags_all,
-            tags_any=request.tags_any,
-            priority_tags=request.priority_tags
-        )
-        return SearchResponse(success=True, results=results)
-    except Exception as e:
-        logger.error(f"Search error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/add", response_model=Dict)
+async def add_document(document: Document):
+    success = db.add_document(document, save=True) # 为了简单，这里设为True，但在高频场景应为False
+    if success:
+        return {"success": True, "message": "文档已添加并立即保存和索引。"}
+    else:
+        raise HTTPException(status_code=500, detail="添加文档时出错")
 
-@app.post("/add")
-async def add_document(request: Dict):
-    """添加文档到知识库"""
-    try:
-        # 创建文档对象
-        document = Document(
-            id=f"doc_{int(time.time() * 1000)}_{len(db.documents)}",
-            content=request["content"],
-            tags=request.get("tags", []),
-            metadata=request.get("metadata", {})
-        )
-        
-        # 添加到数据库
-        success = db.add_document(document)
-        
-        if success:
-            return {"success": True, "document_id": document.id}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to add document")
-            
-    except Exception as e:
-        logger.error(f"Add document error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/batch_add", response_model=Dict)
+async def batch_add_documents(documents: List[Document]):
+    success = db.batch_add_documents(documents)
+    if success:
+        return {"success": True, "message": f"成功批量处理 {len(documents)} 个文档。"}
+    else:
+        raise HTTPException(status_code=500, detail="批量添加文档时出错")
 
-@app.get("/stats")
-async def get_stats():
-    """获取知识库统计信息"""
+@app.post("/search")
+async def search(request: SearchRequest):
+    top_k = request.top_k if request.top_k is not None else 5
+    tags_all = request.tags_all or request.tags
+
+    results = db.search(
+        query=request.query,
+        top_k=top_k,
+        metadata_filter=request.metadata_filter,
+        tags_all=tags_all,
+        tags_any=request.tags_any,
+        priority_tags=request.priority_tags
+    )
+
+    response_results = []
+    for res in results:
+        doc = res.get("document")
+        score = float(res.get("score", 0.0)) if res.get("score") is not None else 0.0
+        if doc is not None:
+            doc_dict = doc.model_dump() if hasattr(doc, "model_dump") else doc.dict() if hasattr(doc, "dict") else doc
+            response_results.append({"document": doc_dict, "score": score})
+
+    return {"success": True, "results": response_results}
+
+@app.post("/save", response_model=Dict)
+async def save_data():
     try:
-        stats = {
-            "document_count": len(db.documents),
-            "vector_count": len(db.vectors),
-            "tag_count": len(db.tag_index),
-            "tags": list(db.tag_index.keys()),
-            "status": "running"
-        }
-        return {"success": True, "stats": stats}
+        db._save_data()
+        return {"success": True, "message": "数据已成功保存到磁盘。"}
     except Exception as e:
-        logger.error(f"Stats error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"手动保存数据时出错: {e}")
+        raise HTTPException(status_code=500, detail=f"保存数据失败: {e}")
+
+@app.post("/rebuild_index", response_model=Dict)
+async def rebuild_index():
+    try:
+        db.rebuild_index()
+        return {"success": True, "message": "FAISS索引已成功重建。"}
+    except Exception as e:
+        logger.error(f"手动重建索引时出错: {e}")
+        raise HTTPException(status_code=500, detail=f"重建索引失败: {e}")
 
 if __name__ == "__main__":
-    port = int(os.getenv("KB_PORT", "8000"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8100)

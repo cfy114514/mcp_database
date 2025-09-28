@@ -76,12 +76,15 @@ def main():
                 print("\n--- No results found. ---")
             else:
                 print(f"\n--- Found {len(results)} results: ---")
-                for i, doc in enumerate(results, 1):
-                    print(f"\n[{i}] Document ID: {doc.id}")
-                    print(f"    Tags: {doc.tags}")
-                    print(f"    Content: {doc.content[:200]}...") # Print a snippet
-                    if doc.metadata:
-                        print(f"    Metadata: {doc.metadata}")
+                for i, result in enumerate(results, 1):
+                    doc = result.get("document", {})
+                    score = result.get("score", 0.0)
+                    print(f"\n[{i}] Document ID: {doc.get('id', 'N/A')}")
+                    print(f"    Score: {score:.4f}")
+                    print(f"    Tags: {doc.get('tags', [])}")
+                    print(f"    Content: {doc.get('content', '')[:200]}...") # Print a snippet
+                    if doc.get('metadata'):
+                        print(f"    Metadata: {doc.get('metadata')}")
 
         except (EOFError, KeyboardInterrupt):
             print("\n\nExiting interactive search. Goodbye!")

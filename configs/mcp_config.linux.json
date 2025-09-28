@@ -18,7 +18,7 @@
       "cwd": "/root/mcp_database",
       "env": {
         "PYTHONPATH": "/root/mcp_database",
-        "KB_SERVICE_URL": "http://localhost:8001"
+        "KB_SERVICE_URL": "http://localhost:8100"
       },
       "description": "向量知识库 MCP 服务，提供文档搜索和存储功能",
       "capabilities": ["tools"],
@@ -32,7 +32,7 @@
       "cwd": "/root/mcp_database",
       "env": {
         "PYTHONPATH": "/root/mcp_database",
-        "KB_SERVICE_URL": "http://localhost:8001"
+        "KB_SERVICE_URL": "http://localhost:8100"
       },
       "description": "上下文聚合服务，整合角色人设和用户记忆",
       "capabilities": ["tools"],
@@ -48,12 +48,12 @@
       "cwd": "/root/mcp_database",
       "env": {
         "PYTHONPATH": "/root/mcp_database",
-        "KB_PORT": "8001"
+        "KB_PORT": "8100"
       },
       "description": "知识库 HTTP 服务，提供向量数据库 REST API",
-      "port": 8001,
+      "port": 8100,
       "healthCheck": {
-        "url": "http://localhost:8001/docs",
+        "url": "http://localhost:8100/docs",
         "interval": 30000,
         "timeout": 5000
       },
@@ -94,5 +94,5 @@
   },
   "description": "MCP 记忆系统 Linux 服务器配置 - 支持角色人设、知识库和智能记忆管理",
   "version": "2.0.0",
-  "lastUpdated": "2025-09-19"
+  "lastUpdated": "2025-09-26"
 }

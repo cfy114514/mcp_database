@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic.config import ConfigDict
 from typing import List, Optional, Dict, Union
 import numpy as np
 import json
@@ -22,7 +23,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("KnowledgeBase")
 
 class Document(BaseModel):
-    id: str
+    # 兼容历史字段名 doc_id
+    model_config = ConfigDict(populate_by_name=True)
+    id: str = Field(alias="doc_id")
     content: str
     tags: List[str]
     metadata: Optional[Dict] = None
@@ -240,7 +243,7 @@ class VectorDatabase:
         try:
             vectors_np = np.array(self.vectors, dtype='float32')
             self.index = faiss.IndexFlatL2(self.dimension)  # 使用L2距离
-            self.index.add(vectors_np)
+            self.index.add(vectors_np)  # type: ignore[arg-type]
             logger.info(f"FAISS索引重建完成，共 {self.index.ntotal} 个向量。")
         except Exception as e:
             logger.error(f"重建FAISS索引时出错: {e}")
@@ -272,7 +275,7 @@ class VectorDatabase:
             # FAISS search returns distances and indices (labels)
             # We search for a larger k to account for post-filtering
             search_k = min(top_k * 5, len(candidate_indices))
-            distances, indices = self.index.search(query_vector_np, search_k)
+            distances, indices = self.index.search(query_vector_np, search_k)  # type: ignore[misc]
 
             # --- Result Processing ---
             results = []
@@ -459,5 +462,14 @@ async def rebuild_index():
         logger.error(f"手动重建索引时出错: {e}")
         raise HTTPException(status_code=500, detail=f"重建索引失败: {e}")
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "knowledge_base_service"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8100)
+    port = int(os.getenv("KB_PORT", "8100"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

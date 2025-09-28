@@ -102,7 +102,7 @@ done
 # 6. 创建日志目录
 echo -e "\n6. 创建日志目录..."
 
-LOG_DIR="/root/logs"
+LOG_DIR="logs"
 if [ -d "$LOG_DIR" ]; then
     echo "✓ 日志目录存在: $LOG_DIR"
 else
@@ -131,45 +131,20 @@ except Exception as e:
     echo "模块测试完成"
 fi
 
-# 8. 生成启动脚本
-echo -e "\n8. 生成启动脚本..."
+# 8. 启动与诊断指引（统一入口）
+echo -e "\n8. 启动与诊断指引"
 
-cat > start_mcp_services.sh << 'EOF'
-#!/bin/bash
+echo "使用统一部署脚本（跨平台，推荐）："
+echo "  python3 deploy_all_tools.py status"
+echo "  python3 deploy_all_tools.py test"
 
-# MCP 服务启动脚本
-WORK_DIR="/root/mcp_database"
-LOG_DIR="/root/logs"
+echo "Linux 管理脚本："
+echo "  ./manage_linux_services.sh start"
+echo "  ./manage_linux_services.sh status"
+echo "  ./manage_linux_services.sh logs"
 
-cd "$WORK_DIR" || exit 1
-
-echo "启动 MCP 服务..."
-
-# 启动知识库 HTTP 服务
-echo "启动知识库 HTTP 服务..."
-nohup python3 knowledge_base_service.py > "$LOG_DIR/knowledge_base_http.log" 2>&1 &
-KNOWLEDGE_BASE_PID=$!
-echo "知识库 HTTP 服务 PID: $KNOWLEDGE_BASE_PID"
-
-# 等待知识库服务启动
-sleep 5
-
-# 测试知识库服务
-if curl -s http://localhost:8000/docs > /dev/null; then
-    echo "✓ 知识库服务启动成功"
-else
-    echo "✗ 知识库服务启动失败"
-fi
-
-echo "MCP 服务启动完成"
-echo "日志目录: $LOG_DIR"
-echo ""
-echo "要停止服务，运行:"
-echo "pkill -f knowledge_base_service.py"
-EOF
-
-chmod +x start_mcp_services.sh
-echo "✓ 启动脚本创建完成: start_mcp_services.sh"
+echo "HTTP 健康检查："
+echo "  curl http://localhost:8001/docs; curl http://localhost:8100/docs"
 
 echo -e "\n=== 环境检查完成 ==="
 echo ""
@@ -177,5 +152,5 @@ echo "下一步操作建议:"
 echo "1. 如果有缺失的依赖，请运行: pip3 install -r requirements.txt"
 echo "2. 确保所有文件上传到服务器的 /root/mcp_database 目录"
 echo "3. 使用 Linux 配置文件: configs/mcp_config.linux.json"
-echo "4. 测试启动服务: ./start_mcp_services.sh"
+echo "4. 启动/状态/测试请参考以上统一入口指引"
 echo ""

@@ -38,8 +38,8 @@ logger = logging.getLogger("ContextAggregator")
 mcp = FastMCP("ContextAggregator")
 
 # 全局配置
-CONFIG = {
-    "kb_service_url": "http://localhost:8000",  # 向量数据库工具使用8000端口
+DEFAULT_CONFIG = {
+    "kb_service_url": "http://localhost:8100",  # 向量数据库工具使用 8100 端口
     "persona_services": {
         "uozumi": {
             "server_name": "persona-uozumi",
@@ -53,7 +53,7 @@ CONFIG = {
 }
 
 # 初始化记忆处理器
-memory_processor = MemoryProcessor(kb_service_url=CONFIG["kb_service_url"])
+memory_processor = MemoryProcessor(kb_service_url=DEFAULT_CONFIG["kb_service_url"])
 
 @mcp.tool()
 def build_prompt_with_context(
@@ -243,13 +243,13 @@ def get_service_status() -> dict:
             "components": {
                 "knowledge_base": {
                     "status": "connected" if kb_status else "disconnected",
-                    "url": CONFIG["kb_service_url"]
+                    "url": DEFAULT_CONFIG["kb_service_url"]
                 },
                 "memory_processor": {
                     "status": "ready" if memory_processor_status else "not_configured",
                     "llm_configured": memory_processor_status
                 },
-                "persona_services": list(CONFIG["persona_services"].keys())
+                "persona_services": list(DEFAULT_CONFIG["persona_services"].keys())
             }
         }
         
@@ -268,7 +268,7 @@ def _get_persona_prompt(persona_name: str, user_name: str, char_name: Optional[s
     注意：这里模拟 MCP 服务调用，实际部署时需要通过 MCP 客户端调用
     """
     try:
-        persona_config = CONFIG["persona_services"].get(persona_name)
+        persona_config = DEFAULT_CONFIG["persona_services"].get(persona_name)
         if not persona_config:
             raise ValueError(f"未知的角色名称: {persona_name}")
         
@@ -305,7 +305,7 @@ def _search_user_memories(user_id: str, query: str, top_k: int, memory_type: Opt
         
         # 发送搜索请求到知识库
         response = requests.post(
-            f"{CONFIG['kb_service_url']}/search",
+            f"{DEFAULT_CONFIG['kb_service_url']}/search",
             json=search_params,
             timeout=10
         )
@@ -385,7 +385,7 @@ def _combine_prompt_and_memories(original_prompt: str, memory_section: str) -> s
 def _check_knowledge_base_status() -> bool:
     """检查知识库服务状态"""
     try:
-        response = requests.get(f"{CONFIG['kb_service_url']}/stats", timeout=5)
+        response = requests.get(f"{DEFAULT_CONFIG['kb_service_url']}/stats", timeout=5)
         return response.status_code == 200
     except:
         return False

@@ -2,7 +2,7 @@
 """
 端口冲突检查工具
 
-检查记忆库工具(8001)和向量数据库工具(8000)之间的端口配置，确保没有冲突。
+检查记忆库工具(8001)和向量数据库工具(8100)之间的端口配置，确保没有冲突。
 """
 
 import os
@@ -15,12 +15,13 @@ from pathlib import Path
 class PortConflictChecker:
     """端口冲突检查器"""
     
-    def __init__(self, project_root: str):
+    def __init__(self, project_root: str, include_archived: bool = False):
         self.project_root = Path(project_root)
         self.memory_tools_port = 8001  # 记忆库工具端口
-        self.vector_db_port = 8000     # 向量数据库工具端口
+        self.vector_db_port = 8100     # 向量数据库工具端口
+        self.include_archived = include_archived
         
-        # 定义工具分类
+        # 定义工具分类（权威清单）
         self.memory_tools = {
             "embedding_memory_processor.py",
             "embedding_context_aggregator_mcp.py", 
@@ -32,8 +33,12 @@ class PortConflictChecker:
             "knowledge_base_service.py",
             "context_aggregator_mcp.py",
             "memory_processor.py",
+        }
+        
+        # 归档（非权威，默认跳过）
+        self.archived_tools = {
             "mcp-calculator/vector_db.py",
-            "mcp-calculator/knowledge_base_service.py"
+            "mcp-calculator/knowledge_base_service.py",
         }
         
         self.conflicts = []
@@ -62,12 +67,12 @@ class PortConflictChecker:
                 
             # 查找端口模式
             patterns = [
-                r'localhost:(\d{4})',           # localhost:8000
-                r'"(\d{4})"',                   # "8000"
-                r'=\s*(\d{4})',                 # = 8000
-                r'port\s*=\s*(\d{4})',          # port = 8000
-                r'KB_PORT.*?(\d{4})',           # KB_PORT": "8000"
-                r'http://localhost:(\d{4})'     # http://localhost:8000
+                r'localhost:(\d{4})',           # localhost:8100
+                r'"(\d{4})"',                   # "8100"
+                r'=\s*(\d{4})',                 # = 8100
+                r'port\s*=\s*(\d{4})',          # port = 8100
+                r'KB_PORT.*?(\d{4})',           # KB_PORT": "8100"
+                r'http://localhost:(\d{4})'     # http://localhost:8100
             ]
             
             for i, line in enumerate(content.split('\n'), 1):
@@ -75,7 +80,7 @@ class PortConflictChecker:
                     matches = re.findall(pattern, line)
                     for match in matches:
                         port = int(match)
-                        if 8000 <= port <= 8001:  # 只关注这两个端口
+                        if port in (8001, 8100):  # 只关注这两个端口
                             ports_found.append((port, f"第{i}行", line.strip()))
                             
         except Exception as e:
@@ -91,9 +96,12 @@ class PortConflictChecker:
         python_files = list(self.project_root.glob("**/*.py"))
         
         for file_path in python_files:
+            # 如为归档且未请求包含，则跳过
             relative_path = str(file_path.relative_to(self.project_root))
-            ports = self.extract_port_from_file(file_path)
+            if (relative_path in self.archived_tools) and not self.include_archived:
+                continue
             
+            ports = self.extract_port_from_file(file_path)
             if ports:
                 results[relative_path] = ports
                 
@@ -123,6 +131,11 @@ class PortConflictChecker:
         
         for file_path, ports in all_results.items():
             file_name = os.path.basename(file_path)
+            
+            # 归档文件提示
+            if (file_path in self.archived_tools) and not self.include_archived:
+                self.print_status(f"ℹ 跳过归档文件（非权威）: {file_path}", "INFO")
+                continue
             
             # 确定文件应该使用的端口
             expected_port = None
@@ -179,9 +192,15 @@ class PortConflictChecker:
         for tool in sorted(self.memory_tools):
             print(f"   - {tool}")
             
-        print("\n📋 向量数据库工具 (端口 8000):")
+        print("\n📋 向量数据库工具 (端口 8100):")
         for tool in sorted(self.vector_db_tools):
             print(f"   - {tool}")
+        
+        if self.archived_tools:
+            print("\n📦 归档（非权威，默认跳过）:")
+            for tool in sorted(self.archived_tools):
+                print(f"   - {tool}")
+            print("  （使用 --include-archived 以纳入检查）")
             
     def run_check(self):
         """执行完整的端口冲突检查"""
@@ -211,10 +230,11 @@ def main():
     
     parser = argparse.ArgumentParser(description="检查MCP工具端口配置冲突")
     parser.add_argument("--project-root", default=".", help="项目根目录路径")
+    parser.add_argument("--include-archived", action="store_true", help="包含归档文件进行检查")
     
     args = parser.parse_args()
     
-    checker = PortConflictChecker(args.project_root)
+    checker = PortConflictChecker(args.project_root, include_archived=args.include_archived)
     success = checker.run_check()
     
     if success:

@@ -19,6 +19,11 @@ class MCPToolChecker:
     def __init__(self, project_root: str):
         self.project_root = Path(project_root)
         self.tools_status = {}
+        # 标记归档（非权威）文件
+        self.archived = {
+            "mcp-calculator/vector_db.py",
+            "mcp-calculator/knowledge_base_service.py",
+        }
         
     def print_status(self, message: str, status: str = "INFO"):
         """打印状态信息"""
@@ -82,7 +87,7 @@ class MCPToolChecker:
         mcp_tools = {
             "context_aggregator_mcp.py": {
                 "name": "向量数据库上下文聚合器",
-                "port": 8000,
+                "port": 8100,
                 "type": "向量数据库工具"
             },
             "embedding_context_aggregator_mcp.py": {
@@ -92,13 +97,15 @@ class MCPToolChecker:
             },
             "knowledge_base_mcp.py": {
                 "name": "知识库MCP工具",
-                "port": 8000,
+                "port": 8100,
                 "type": "向量数据库工具"
             },
+            # 归档项不计入权威清单
             "mcp-calculator/vector_db.py": {
-                "name": "向量数据库工具",
-                "port": 8000,
-                "type": "向量数据库工具"
+                "name": "向量数据库工具（归档）",
+                "port": 8100,
+                "type": "向量数据库工具（归档）",
+                "archived": True,
             }
         }
         
@@ -106,12 +113,14 @@ class MCPToolChecker:
         
         for tool_path, tool_info in mcp_tools.items():
             full_path = self.project_root / tool_path
+            is_archived = tool_info.get("archived", False) or (tool_path in self.archived)
             
             if full_path.exists():
                 tools_status[tool_path] = {
                     "exists": True,
                     "info": tool_info,
-                    "size": full_path.stat().st_size
+                    "size": full_path.stat().st_size,
+                    "archived": is_archived,
                 }
                 
                 # 检查文件内容
@@ -125,7 +134,7 @@ class MCPToolChecker:
                     has_tools = "@mcp.tool" in content or "def " in content
                     # 检查端口配置
                     expected_port = str(tool_info["port"])
-                    has_correct_port = expected_port in content
+                    has_correct_port = expected_port in content or "KB_PORT" in content
                     
                     tools_status[tool_path].update({
                         "has_fastmcp": has_fastmcp,
@@ -135,9 +144,11 @@ class MCPToolChecker:
                     
                     status = "SUCCESS"
                     if not all([has_fastmcp, has_tools, has_correct_port]):
-                        status = "WARNING"
-                        
-                    self.print_status(f"✓ {tool_path} ({tool_info['name']}) - {tool_info['type']}", status)
+                        status = "WARNING" if is_archived else "WARNING"
+                        # 归档文件的缺失不影响整体成功标记
+                    
+                    label = f"{tool_info['name']}" + (" [ARCHIVED]" if is_archived else "")
+                    self.print_status(f"✓ {tool_path} ({label}) - {tool_info['type']}", status)
                     self.print_status(f"  📦 FastMCP: {'是' if has_fastmcp else '否'} | 工具定义: {'是' if has_tools else '否'} | 端口配置: {'是' if has_correct_port else '否'}", "INFO")
                     
                 except Exception as e:
@@ -147,9 +158,11 @@ class MCPToolChecker:
             else:
                 tools_status[tool_path] = {
                     "exists": False,
-                    "info": tool_info
+                    "info": tool_info,
+                    "archived": is_archived,
                 }
-                self.print_status(f"⚠ {tool_path} ({tool_info['name']}) - 文件不存在", "WARNING")
+                level = "INFO" if is_archived else "WARNING"
+                self.print_status(f"{'ℹ' if is_archived else '⚠'} {tool_path} ({tool_info['name']}) - 文件不存在{('（归档，已跳过）' if is_archived else '')}", level)
                 
         return tools_status
         
@@ -160,13 +173,15 @@ class MCPToolChecker:
         service_files = {
             "knowledge_base_service.py": {
                 "name": "向量数据库HTTP服务",
-                "port": 8000,
+                "port": 8100,
                 "type": "向量数据库工具"
             },
+            # 归档服务展示但不计入失败
             "mcp-calculator/knowledge_base_service.py": {
-                "name": "计算器向量数据库服务",
-                "port": 8000, 
-                "type": "向量数据库工具"
+                "name": "计算器向量数据库服务（归档）",
+                "port": 8100, 
+                "type": "向量数据库工具（归档）",
+                "archived": True,
             }
         }
         
@@ -174,12 +189,14 @@ class MCPToolChecker:
         
         for service_path, service_info in service_files.items():
             full_path = self.project_root / service_path
+            is_archived = service_info.get("archived", False)
             
             if full_path.exists():
                 services_status[service_path] = {
                     "exists": True,
                     "info": service_info,
-                    "size": full_path.stat().st_size
+                    "size": full_path.stat().st_size,
+                    "archived": is_archived,
                 }
                 
                 # 检查文件内容
@@ -203,9 +220,10 @@ class MCPToolChecker:
                     
                     status = "SUCCESS"
                     if not all([has_fastapi, has_routes, has_correct_port]):
-                        status = "WARNING"
-                        
-                    self.print_status(f"✓ {service_path} ({service_info['name']}) - {service_info['type']}", status)
+                        status = "WARNING" if is_archived else "WARNING"
+                    
+                    label = f"{service_info['name']}" + (" [ARCHIVED]" if is_archived else "")
+                    self.print_status(f"✓ {service_path} ({label}) - {service_info['type']}", status)
                     self.print_status(f"  🚀 FastAPI: {'是' if has_fastapi else '否'} | 路由: {'是' if has_routes else '否'} | 端口配置: {'是' if has_correct_port else '否'}", "INFO")
                     
                 except Exception as e:
@@ -215,9 +233,11 @@ class MCPToolChecker:
             else:
                 services_status[service_path] = {
                     "exists": False,
-                    "info": service_info
+                    "info": service_info,
+                    "archived": is_archived,
                 }
-                self.print_status(f"⚠ {service_path} ({service_info['name']}) - 文件不存在", "WARNING")
+                level = "INFO" if is_archived else "WARNING"
+                self.print_status(f"{'ℹ' if is_archived else '⚠'} {service_path} ({service_info['name']}) - 文件不存在{('（归档，已跳过）' if is_archived else '')}", level)
                 
         return services_status
         
@@ -261,14 +281,14 @@ class MCPToolChecker:
         self.print_status(f"📋 配置文件: {config_ok}/{config_total} 正常", "SUCCESS" if config_ok == config_total else "WARNING")
         
         # MCP工具统计  
-        tools_total = len(tools)
-        tools_ok = sum(1 for v in tools.values() if v.get("exists", False))
-        self.print_status(f"🛠 MCP工具: {tools_ok}/{tools_total} 存在", "SUCCESS" if tools_ok == tools_total else "WARNING")
+        tools_total = len([k for k, v in tools.items() if not v.get('archived')])
+        tools_ok = sum(1 for v in tools.values() if v.get("exists", False) and not v.get('archived'))
+        self.print_status(f"🛠 MCP工具: {tools_ok}/{tools_total} 存在（归档项不计入）", "SUCCESS" if tools_ok == tools_total else "WARNING")
         
         # HTTP服务统计
-        services_total = len(services)
-        services_ok = sum(1 for v in services.values() if v.get("exists", False))
-        self.print_status(f"🌐 HTTP服务: {services_ok}/{services_total} 存在", "SUCCESS" if services_ok == services_total else "WARNING")
+        services_total = len([k for k, v in services.items() if not v.get('archived')])
+        services_ok = sum(1 for v in services.values() if v.get("exists", False) and not v.get('archived'))
+        self.print_status(f"🌐 HTTP服务: {services_ok}/{services_total} 存在（归档项不计入）", "SUCCESS" if services_ok == services_total else "WARNING")
         
         # 依赖项统计
         deps_total = len(dependencies)
@@ -277,17 +297,24 @@ class MCPToolChecker:
         
         # 端口分配总结
         self.print_status("\n🔧 端口分配状况:", "INFO")
-        self.print_status("  📍 端口 8000: 向量数据库工具", "INFO")
+        self.print_status("  📍 端口 8100: 向量数据库工具", "INFO")
         self.print_status("    - knowledge_base_service.py", "INFO")
         self.print_status("    - context_aggregator_mcp.py", "INFO")
         self.print_status("    - memory_processor.py", "INFO")
-        self.print_status("    - mcp-calculator/vector_db.py", "INFO")
+        self.print_status("    - knowledge_base_mcp.py", "INFO")
         
         self.print_status("  📍 端口 8001: 记忆库工具", "INFO")
         self.print_status("    - embedding_memory_processor.py", "INFO")
         self.print_status("    - embedding_context_aggregator_mcp.py", "INFO")
         self.print_status("    - test_embedding_memory.py", "INFO")
         self.print_status("    - mcp_memory_manager.py", "INFO")
+        
+        # 归档提示
+        archived_list = [k for k, v in {**tools, **services}.items() if v.get('archived')]
+        if archived_list:
+            self.print_status("\n📦 归档（非权威，已从成功率统计中排除）:", "INFO")
+            for item in sorted(archived_list):
+                self.print_status(f"  - {item}", "INFO")
         
         # 整体状态
         overall_ok = all([

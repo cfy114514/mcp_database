@@ -2,3 +2,20 @@
 mcp-persona-luoluo/node_modules/
 mcp-persona-luoluo/dist/
 DAILY_SUMMARY_20241227.md
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and PIDs
+logs/
+pids/
+
+# Virtual env
+.venv/
+
+# Data artifacts (adjust if you want to version data)
+data/*.npy
+indices/

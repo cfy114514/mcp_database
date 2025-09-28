@@ -22,7 +22,7 @@
 ```
 embedding_memory_processor.py        — 核心记忆处理器
 embedding_context_aggregator_mcp.py  — 上下文聚合MCP服务  
-knowledge_base_service.py           — 知识库HTTP API服务
+knowledge_base_service.py           — 知识库HTTP API服务（端口：8100）
 mcp_memory_manager.py               — 统一管理脚本
 ```
 
@@ -45,15 +45,21 @@ configs/personas/karlach/      — 🆕 Karlach角色配置
 └── persona.meta.yaml          — YAML格式元数据
 ```
 
+## 🔌 端口约定（已更新）
+- 📚 知识库HTTP服务 `knowledge_base_service.py`：8100（向量数据库实例）/ 8001（记忆库实例）
+- 🧠 记忆库客户端 `embedding_memory_processor.py`：连接 8001 实例进行存储/检索
+
 ## 🚀 快速开始
 
 ### 📋 **环境要求**
-- **Python 3.7+** (必需)
-- **Node.js 16+** (角色人设服务需要)
-- **4GB+ 内存**
-- **SiliconFlow API密钥** (embedding服务)
+- Python 3.7+
+- 4GB+ 内存  
+- SiliconFlow API密钥
 
-### ⚡ **一键部署 (推荐)**
+### ⚡ **一键部署**
+```bash
+# 1. 配置API密钥
+```
 
 #### Windows用户：
 ```batch
@@ -114,7 +120,9 @@ python deploy_all_tools.py test
 EMBEDDING_API_KEY=your_siliconflow_api_key
 EMBEDDING_API_BASE=https://api.siliconflow.cn/v1
 EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
-KB_PORT=8001
+# KB_PORT 通常无需在 .env 全局固定。
+# - 部署脚本会分别以 8100（向量数据库实例）与 8001（记忆库实例）启动 knowledge_base_service。
+# - 若手动运行 knowledge_base_service.py，可临时设置 KB_PORT=8100 或 KB_PORT=8001。
 ```
 
 #### 安装依赖包
@@ -139,7 +147,7 @@ npm run build
 ├── embedding_context_aggregator_mcp.py - 记忆上下文聚合MCP服务
 └── test_embedding_memory.py          - 统一测试脚本
 
-📚 向量数据库工具 (端口 8000)  
+📚 向量数据库工具 (端口 8100)  
 ├── knowledge_base_service.py         - 通用向量数据库HTTP服务
 ├── context_aggregator_mcp.py         - 传统上下文聚合MCP服务
 ├── memory_processor.py               - 传统LLM记忆处理
@@ -153,7 +161,10 @@ npm run build
 └── xiaozhi.mcp.config.example.json  - MCP客户端配置示例
 ```
 
-### 🔄 **服务管理命令**
+### 🔄 **服务管理命令（统一）**
+- Windows：使用 `start_all_tools.bat` 或 `python deploy_all_tools.py ...`
+- Linux：使用 `manage_linux_services.sh`（start/stop/restart/status/test/logs）或 `start_all_tools.sh`
+- 废弃脚本：`start_memory_system.bat`、`start_linux_services.sh`、`start_mcp_services.sh` 已合并，保留为兼容转发
 
 #### 基本服务管理
 ```bash
@@ -188,7 +199,7 @@ python test_embedding_memory.py integration # 集成测试
 启动成功后，可通过以下地址访问：
 
 - **🧠 记忆库工具API**: http://localhost:8001/docs
-- **📚 向量数据库工具API**: http://localhost:8000/docs
+- **📚 向量数据库工具API**: http://localhost:8100/docs
 - **👤 角色人设服务**: Node.js MCP服务 (无HTTP接口，通过MCP协议访问)
 
 ### 🧠 **记忆处理流程**
@@ -549,40 +560,17 @@ def custom_memory_tool(user_id: str, query: str) -> Dict:
     return {"result": "custom_processing"}
 ```
 
-### 🧪 **测试和调试**
+### 🧪 测试与示例
+- 统一测试脚本：`test_embedding_memory.py`
+- 其它测试：位于 `tests/`（如 `tests/test_tagger.py`、`tests/test_search_tags.py`、`tests/test_check_tags.py`）
+- 示例迁移：示例/演示脚本迁移至 `tests/examples/`
+
 ```bash
-# 运行完整测试套件
-python test_embedding_memory.py all
+# 运行所有测试
+python -m unittest discover -s tests
 
-# 运行特定测试类型
-python test_embedding_memory.py env          # 环境测试
-python test_embedding_memory.py api          # API配置测试
-python test_embedding_memory.py storage      # 存储功能测试
-python test_embedding_memory.py filter       # 过滤功能测试
-python test_embedding_memory.py integration  # 集成测试
-
-# 通过管理脚本运行测试
-python mcp_memory_manager.py test
-
-# 查看详细日志
-python test_embedding_memory.py all --verbose
-
-# 性能测试
-python -c "
-import time
-import requests
-start = time.time()
-resp = requests.get('http://localhost:8001/stats')
-print(f'Response time: {time.time() - start:.3f}s')
-"
-
-# 内存使用检查
-python -c "
-import psutil
-import os
-process = psutil.Process(os.getpid())
-print(f'Memory usage: {process.memory_info().rss / 1024 / 1024:.1f} MB')
-"
+# 运行特定测试
+python -m unittest tests.test_embedding_memory
 ```
 
 ### 🔍 **API接口文档**
@@ -709,14 +697,14 @@ python reset_database.py              # 重置前备份
 import requests
 
 # 搜索文档
-response = requests.post("http://localhost:8000/search", json={
+response = requests.post("http://localhost:8100/search", json={
     "query": "人工智能技术",
     "top_k": 5,
     "tags": ["技术", "AI"]
 })
 
 # 添加文档
-response = requests.post("http://localhost:8000/add", json={
+response = requests.post("http://localhost:8100/add", json={
     "id": "doc_001",
     "content": "这是一篇关于人工智能的文档...",
     "tags": ["AI", "技术"],
@@ -790,7 +778,7 @@ EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
 
 # 端口配置 (已优化，通常无需修改)
 KB_PORT=8001                    # 记忆库工具端口
-VECTOR_DB_PORT=8000            # 向量数据库工具端口
+VECTOR_DB_PORT=8100            # 向量数据库工具端口
 
 # 可选配置
 LLM_API_KEY=your_llm_api_key   # LLM服务密钥 (传统记忆处理需要)
@@ -828,11 +816,11 @@ LLM_MODEL=gpt-3.5-turbo
 python test_embedding_memory.py all
 
 # 分项测试
-python test_embedding_memory.py env        # 环境和依赖检查
-python test_embedding_memory.py api        # API配置验证
-python test_embedding_memory.py storage    # 记忆存储功能测试
-python test_embedding_memory.py filter     # 元数据过滤测试
-python test_embedding_memory.py integration # 端到端集成测试
+python test_embedding_memory.py env        # 环境测试
+python test_embedding_memory.py api        # API配置测试
+python test_embedding_memory.py storage    # 存储功能测试
+python test_embedding_memory.py filter     # 过滤功能测试
+python test_embedding_memory.py integration # 集成测试
 ```
 
 ### � **Karlach专项测试** (新增)
@@ -865,7 +853,7 @@ tail -f logs/persona_service.log    # 角色人设服务日志
 ```bash
 # API响应时间测试
 curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:8001/docs"
-curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:8000/docs"
+curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:8100/docs"
 
 # 记忆处理性能测试
 python test_embedding_memory.py storage --performance
@@ -966,7 +954,7 @@ requests.post("http://localhost:8001/search", json={
 })
 ```
 
-### 📚 **向量数据库工具API (8000)**
+### 📚 **向量数据库工具API (8100)**
 
 #### 核心接口
 - `POST /add` - 添加文档
@@ -977,7 +965,7 @@ requests.post("http://localhost:8001/search", json={
 #### 示例请求
 ```python
 # 添加文档
-requests.post("http://localhost:8000/add", json={
+requests.post("http://localhost:8100/add", json={
     "id": "doc_001", 
     "content": "人工智能是计算机科学的一个分支...",
     "tags": ["AI", "技术", "科学"],
@@ -985,7 +973,7 @@ requests.post("http://localhost:8000/add", json={
 })
 
 # 搜索文档
-requests.post("http://localhost:8000/search", json={
+requests.post("http://localhost:8100/search", json={
     "query": "人工智能技术发展",
     "tags": ["AI"],
     "top_k": 10
@@ -1047,7 +1035,7 @@ python deploy_all_tools.py status
 
 # API健康检查
 curl http://localhost:8001/docs
-curl http://localhost:8000/docs
+curl http://localhost:8100/docs
 ```
 
 #### 性能监控
@@ -1206,14 +1194,8 @@ npm start
 python test_karlach_integration.py
 ```
 
----
-
----
-
-**🚀 立即开始**: `python mcp_memory_manager.py deploy`
-
-**📖 API文档**: `http://localhost:8001/docs`
-
-**💡 技术交流**: 欢迎在GitHub Issues中讨论技术问题和改进建议
-
-**🌟 项目特色**: 纯embedding方案，高性能低成本，完整的用户隔离和记忆管理
+> 维护说明：
+> - 已统一使用根目录 `knowledge_base_mcp.py`；`mcp-calculator/` 内对应文件已归档至 `backups/_trash/`。
+> - `README_NEW.md` 已合并入本文件并归档。
+> - `deploy_memory_system.py` 与旧启动脚本已废弃，统一使用 `deploy_all_tools.py` / `start_all_tools.(bat|sh)` 或 Linux `manage_linux_services.sh`。
+> - 示例与额外测试统一放在 `tests/`（含 `tests/examples/`）。

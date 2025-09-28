@@ -6,8 +6,8 @@
 set -e
 
 WORK_DIR="/root/mcp_database"
-LOG_DIR="/root/logs"
-PID_DIR="/root/pids"
+LOG_DIR="$WORK_DIR/logs"
+PID_DIR="$WORK_DIR/pids"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -70,9 +70,9 @@ check_service() {
     fi
 }
 
-# 函数：启动知识库HTTP服务
+# 函数：启动知识库HTTP服务 (8001 记忆库实例)
 start_knowledge_base() {
-    print_info "启动知识库HTTP服务..."
+    print_info "启动知识库HTTP服务 (8001)..."
     
     local pid_file="$PID_DIR/knowledge_base_http.pid"
     local log_file="$LOG_DIR/knowledge_base_http.log"
@@ -106,6 +106,45 @@ start_knowledge_base() {
     done
     
     print_error "知识库HTTP服务启动超时"
+    return 1
+}
+
+# 函数：启动向量数据库HTTP服务 (8100 向量库实例)
+start_vector_database() {
+    print_info "启动向量数据库HTTP服务 (8100)..."
+
+    local pid_file="$PID_DIR/vector_database_http.pid"
+    local log_file="$LOG_DIR/vector_database.log"
+
+    # 检查是否已经运行
+    if check_service "vector_database_http" "8100" > /dev/null 2>&1; then
+        print_warn "向量数据库HTTP服务已经在运行"
+        return 0
+    fi
+
+    # 设置环境变量并启动服务
+    export KB_PORT=8100
+    export PYTHONPATH="$WORK_DIR"
+
+    nohup python3 knowledge_base_service.py > "$log_file" 2>&1 &
+    local pid=$!
+    echo $pid > "$pid_file"
+
+    print_info "向量数据库HTTP服务启动中 (PID: $pid)"
+
+    # 等待服务启动
+    local max_wait=30
+    local count=0
+    while [ $count -lt $max_wait ]; do
+        if curl -s "http://localhost:8100/docs" > /dev/null 2>&1; then
+            print_info "✓ 向量数据库HTTP服务启动成功 (端口: 8100)"
+            return 0
+        fi
+        sleep 1
+        ((count++))
+    done
+
+    print_error "向量数据库HTTP服务启动超时"
     return 1
 }
 
@@ -150,6 +189,8 @@ check_all_services() {
     echo
     check_service "knowledge_base_http" "8001"
     echo
+    check_service "vector_database_http" "8100"
+    echo
 }
 
 # 函数：查看日志
@@ -166,7 +207,7 @@ show_logs() {
     fi
 }
 
-# 函数：测试记忆功能
+# 函数：测试记忆功能 (8001)
 test_memory_system() {
     print_info "测试记忆系统功能..."
     
@@ -218,11 +259,22 @@ test_memory_system() {
     fi
 }
 
+# 函数：测试向量数据库健康 (8100)
+test_vector_health() {
+    print_info "测试向量数据库健康 (8100)..."
+    if curl -s "http://localhost:8100/stats" > /dev/null 2>&1; then
+        print_info "✓ 向量数据库健康检查通过"
+    else
+        print_warn "⚠ 向量数据库未运行或不可访问"
+    fi
+}
+
 # 主要功能
 case "${1:-help}" in
     "start")
         print_info "启动MCP记忆系统服务..."
         start_knowledge_base
+        start_vector_database
         echo
         check_all_services
         ;;
@@ -230,13 +282,16 @@ case "${1:-help}" in
     "stop")
         print_info "停止MCP记忆系统服务..."
         stop_service "knowledge_base_http"
+        stop_service "vector_database_http"
         ;;
     
     "restart")
         print_info "重启MCP记忆系统服务..."
         stop_service "knowledge_base_http"
+        stop_service "vector_database_http"
         sleep 2
         start_knowledge_base
+        start_vector_database
         echo
         check_all_services
         ;;
@@ -251,6 +306,7 @@ case "${1:-help}" in
     
     "test")
         test_memory_system
+        test_vector_health
         ;;
     
     "help"|*)
@@ -264,7 +320,7 @@ case "${1:-help}" in
         echo "  restart - 重启所有服务"
         echo "  status  - 检查服务状态"
         echo "  logs    - 查看服务日志"
-        echo "  test    - 测试记忆系统功能"
+        echo "  test    - 测试记忆系统功能与向量库健康"
         echo "  help    - 显示此帮助信息"
         echo ""
         echo "示例:"

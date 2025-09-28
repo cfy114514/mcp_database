@@ -449,7 +449,7 @@ class MetadataFilterTester:
                     
                     # 验证只返回user_001的数据
                     for doc in results:
-                        metadata = doc.get("metadata", {})
+                        metadata = doc["document"].get("metadata", {})
                         if metadata.get("user_id") != "user_001":
                             print_status("✗ 数据隔离失败：返回了其他用户数据", "ERROR")
                             return False
@@ -468,7 +468,7 @@ class MetadataFilterTester:
                             
                             # 验证只返回user_002的数据
                             for doc in results:
-                                metadata = doc.get("metadata", {})
+                                metadata = doc["document"].get("metadata", {})
                                 if metadata.get("user_id") != "user_002":
                                     print_status("✗ 数据隔离失败：返回了其他用户数据", "ERROR")
                                     return False

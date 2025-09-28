@@ -4,8 +4,10 @@ MCP 记忆系统统一部署脚本
 
 集成三套工具的完整部署和管理：
 1. 记忆库工具 (端口 8001) - embedding_memory_processor.py
-2. 向量数据库工具 (端口 8000) - knowledge_base_service.py  
+2. 向量数据库工具 (端口 8100) - knowledge_base_service.py  
 3. 角色人设服务 - mcp-persona-uozumi
+
+说明：知识库 MCP 工具已统一使用根目录 `knowledge_base_mcp.py`。
 
 功能:
 - 一键环境检查和依赖安装
@@ -101,10 +103,10 @@ class MCPUnifiedDeployment:
             },
             "vector_database": {
                 "name": "向量数据库工具", 
-                "port": 8000,
+                "port": 8100,
                 "script": "knowledge_base_service.py",
-                "env": {"KB_PORT": "8000"},
-                "health_url": "http://localhost:8000/docs",
+                "env": {"KB_PORT": "8100"},
+                "health_url": "http://localhost:8100/docs",
                 "pid_file": "vector_database.pid",
                 "log_file": "vector_database.log",
                 "description": "通用向量数据库存储服务"
@@ -324,10 +326,12 @@ python3 deploy_all_tools.py start
         print_status("✓ 启动脚本已创建", "SUCCESS")
         
     def check_port_available(self, port: int) -> bool:
-        """检查端口是否可用"""
+        """检查端口是否可用（用 0.0.0.0 进行绑定，避免误判）"""
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('localhost', port))
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                # 在所有网卡上尝试绑定，若失败则说明被占用
+                s.bind(('0.0.0.0', port))
                 return True
         except OSError:
             return False
@@ -365,21 +369,38 @@ python3 deploy_all_tools.py start
             else:
                 # Python服务
                 cmd = [sys.executable, str(script_path)]
-                
-            with open(log_file, 'w') as log:
+            
+            # 确保子进程统一UTF-8编码，避免日志乱码（仅对Python子进程生效）
+            env["PYTHONUTF8"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
+            
+            # 不同类型服务采用不同的日志写入模式
+            if service_name == "persona_service":
+                # Node.js 输出可能包含非 UTF-8 字节，使用二进制方式避免解码错误
+                log_fh = open(log_file, 'wb')
+            else:
+                log_fh = open(log_file, 'w', encoding='utf-8')
+            
+            try:
                 process = subprocess.Popen(
                     cmd,
-                    stdout=log,
+                    stdout=log_fh,
                     stderr=subprocess.STDOUT,
                     env=env,
                     cwd=self.project_root
                 )
-                
+            finally:
+                # Popen 持有文件句柄的dup，原句柄可关闭
+                try:
+                    log_fh.close()
+                except Exception:
+                    pass
+            
             # 保存进程信息
             self.processes[service_name] = process
             with open(pid_file, 'w') as f:
                 f.write(str(process.pid))
-                
+            
             # 等待服务启动
             time.sleep(3)
             
@@ -407,9 +428,39 @@ python3 deploy_all_tools.py start
             except:
                 return False
         else:
-            # 对于没有健康检查URL的服务，检查进程是否还在运行
-            process = self.processes.get(service_name)
-            return process is not None and process.poll() is None
+            # 无健康检查URL的服务（如 persona_service），通过 PID 与系统进程校验
+            pid_file = self.pid_dir / service['pid_file']
+            try:
+                if pid_file.exists():
+                    with open(pid_file, 'r') as f:
+                        pid = f.read().strip()
+                    if os.name == 'nt':
+                        # 避免控制台编码影响，先以字节获取，再自适应解码
+                        result = subprocess.run(
+                            ['tasklist', '/FI', f'PID eq {pid}'],
+                            capture_output=True
+                        )
+                        output = None
+                        for enc in ('utf-8', 'mbcs', 'oem', 'cp936', 'cp65001'):
+                            try:
+                                output = result.stdout.decode(enc)
+                                break
+                            except Exception:
+                                continue
+                        if output is None:
+                            output = result.stdout.decode(errors='ignore')
+                        return str(pid) in output
+                    else:
+                        try:
+                            os.kill(int(pid), 0)
+                            return True
+                        except ProcessLookupError:
+                            return False
+                # 回退到进程对象检查
+                process = self.processes.get(service_name)
+                return process is not None and process.poll() is None
+            except Exception:
+                return False
             
     def stop_service(self, service_name: str) -> bool:
         """停止单个服务"""
@@ -458,6 +509,9 @@ python3 deploy_all_tools.py start
         if service_name in self.processes:
             del self.processes[service_name]
             
+        # 等待端口释放
+        time.sleep(1)
+            
         print_status(f"✓ {service['name']} 已停止", "SUCCESS")
         return True
         
@@ -498,7 +552,7 @@ python3 deploy_all_tools.py start
         """显示服务访问地址"""
         print_status("\n📋 服务访问地址:", "INFO")
         print(f"  🧠 记忆库工具: http://localhost:8001/docs")
-        print(f"  📚 向量数据库工具: http://localhost:8000/docs") 
+        print(f"  📚 向量数据库工具: http://localhost:8100/docs") 
         print(f"  👤 角色人设服务: Node.js MCP服务 (无HTTP接口)")
         
     def test_all_systems(self) -> bool:
@@ -534,14 +588,24 @@ python3 deploy_all_tools.py start
         # 运行统一测试脚本
         print_status("运行完整测试套件...", "INFO")
         try:
-            result = subprocess.run([
-                sys.executable, "test_embedding_memory.py", "all"
-            ], capture_output=True, text=True)
+            test_env = os.environ.copy()
+            test_env["PYTHONUTF8"] = "1"
+            test_env["PYTHONIOENCODING"] = "utf-8"
+            log_path = self.log_dir / "test_suite.log"
+            
+            # 直接重定向输出到文件，避免内存占用
+            with open(log_path, 'w', encoding='utf-8') as lf:
+                lf.write("==== MCP Embedding Test Suite Output ====" + "\n")
+                lf.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                result = subprocess.run([
+                    sys.executable, "test_embedding_memory.py", "all"
+                ], stdout=lf, stderr=subprocess.STDOUT, cwd=self.project_root, env=test_env)
+                lf.write(f"ReturnCode: {result.returncode}\n")
             
             if result.returncode == 0:
                 print_status("✓ 完整测试套件通过", "SUCCESS")
             else:
-                print_status("⚠ 完整测试套件有警告，请查看详细日志", "WARNING")
+                print_status("⚠ 完整测试套件有警告，请查看详细日志: logs/test_suite.log", "WARNING")
                 
         except Exception as e:
             print_status(f"✗ 测试套件运行失败: {e}", "ERROR")
@@ -560,7 +624,7 @@ python3 deploy_all_tools.py start
     def _test_vector_service(self) -> bool:
         """测试向量数据库服务"""
         try:
-            response = requests.get("http://localhost:8000/docs", timeout=5)
+            response = requests.get("http://localhost:8100/docs", timeout=5)
             return response.status_code == 200
         except:
             return False
@@ -631,18 +695,28 @@ python3 deploy_all_tools.py start
                     
                     # 检查进程是否还在运行
                     if os.name == 'nt':
+                        # 捕获字节并自适应解码，避免编码异常
                         result = subprocess.run(
                             ['tasklist', '/FI', f'PID eq {pid}'],
-                            capture_output=True, text=True
+                            capture_output=True
                         )
-                        is_running = pid in result.stdout
+                        output = None
+                        for enc in ('utf-8', 'mbcs', 'oem', 'cp936', 'cp65001'):
+                            try:
+                                output = result.stdout.decode(enc)
+                                break
+                            except Exception:
+                                continue
+                        if output is None:
+                            output = result.stdout.decode(errors='ignore')
+                        is_running = pid in output
                     else:
                         try:
                             os.kill(int(pid), 0)
                             is_running = True
                         except ProcessLookupError:
                             is_running = False
-                            
+                        
                     if is_running:
                         status = "运行中"
                         color = "SUCCESS"

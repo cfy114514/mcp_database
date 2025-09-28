@@ -16,7 +16,7 @@
       "cwd": "c:/Users/Administrator/Documents/mcp_database",
       "env": {
         "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
-        "KB_SERVICE_URL": "http://localhost:8000",
+        "KB_SERVICE_URL": "http://localhost:8100",
         "LOG_LEVEL": "DEBUG"
       },
       "description": "向量知识库 MCP 服务（开发模式）"
@@ -27,7 +27,7 @@
       "cwd": "c:/Users/Administrator/Documents/mcp_database",
       "env": {
         "PYTHONPATH": "c:/Users/Administrator/Documents/mcp_database",
-        "KB_SERVICE_URL": "http://localhost:8000",
+        "KB_SERVICE_URL": "http://localhost:8100",
         "LOG_LEVEL": "DEBUG"
       },
       "description": "上下文聚合服务（开发模式）"

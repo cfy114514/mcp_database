@@ -6,7 +6,7 @@
 set -e
 
 WORK_DIR="/root/mcp_database"
-LOG_FILE="/root/logs/knowledge_base_http.log"
+LOG_FILE="logs/knowledge_base_http.log"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -92,10 +92,10 @@ print_header "4. 端口配置检查"
 
 if [ -f "configs/mcp_config.linux.json" ]; then
     port_8001_count=$(grep -c "8001" configs/mcp_config.linux.json || echo "0")
-    port_8000_count=$(grep -c "8000" configs/mcp_config.linux.json || echo "0")
+    port_8100_count=$(grep -c "8100" configs/mcp_config.linux.json || echo "0")
     
     print_info "配置文件中端口8001出现次数: $port_8001_count"
-    print_info "配置文件中端口8000出现次数: $port_8000_count"
+    print_info "配置文件中端口8100出现次数: $port_8100_count"
     
     if [ "$port_8001_count" -gt 0 ]; then
         print_success "端口配置使用8001 (正确)"
@@ -121,7 +121,7 @@ fi
 print_header "6. 服务启动诊断"
 
 print_info "清理旧日志..."
-mkdir -p /root/logs
+mkdir -p logs
 > "$LOG_FILE"
 
 print_info "设置环境变量..."
@@ -199,11 +199,12 @@ echo "1. 安装所有依赖:"
 echo "   pip3 install fastapi uvicorn numpy requests python-multipart"
 echo ""
 
-echo "2. 使用改进的启动脚本:"
-echo "   ./start_mcp_services.sh"
+echo "2. 使用统一部署脚本:"
+echo "   python3 deploy_all_tools.py status"
+echo "   python3 deploy_all_tools.py test"
 echo ""
 
-echo "3. 或使用完整管理脚本:"
+echo "3. 或使用 Linux 管理脚本:"
 echo "   ./manage_linux_services.sh start"
 echo ""
 

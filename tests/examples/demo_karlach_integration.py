@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+
 """
 Karlach MCP工具使用演示
 """
 import json
-import subprocess
-import sys
 from pathlib import Path
+
+# 计算仓库根目录（tests/examples/ -> tests -> repo root）
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def demonstrate_karlach_tools():
     """演示karlach MCP工具"""
@@ -33,12 +36,14 @@ def demonstrate_karlach_tools():
     
     # 显示配置文件信息
     print("\n📁 Karlach配置文件:")
-    karlach_dir = Path("configs/personas/karlach")
+    karlach_dir = REPO_ROOT / "configs" / "personas" / "karlach"
     if karlach_dir.exists():
         files = list(karlach_dir.glob("*"))
         for file in files:
             size = file.stat().st_size if file.is_file() else 0
             print(f"   📄 {file.name} ({size} bytes)")
+    else:
+        print(f"   ⚠️ 目录不存在: {karlach_dir}")
             
     # 显示一些示例数据
     print("\n🎮 示例配置数据:")
@@ -69,11 +74,12 @@ def demonstrate_karlach_tools():
     except Exception as e:
         print(f"   ❌ 无法读取情绪数据: {e}")
 
+
 def show_mcp_config():
     """显示MCP配置信息"""
     print("\n⚙️ MCP配置文件:")
     
-    config_file = Path("mcp-persona-uozumi/xiaozhi.mcp.config.example.json")
+    config_file = REPO_ROOT / "mcp-persona-uozumi" / "xiaozhi.mcp.config.example.json"
     if config_file.exists():
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
@@ -102,6 +108,7 @@ def show_mcp_config():
     else:
         print(f"   ⚠️ 配置文件不存在: {config_file}")
 
+
 def show_usage_instructions():
     """显示使用说明"""
     print("\n📖 使用说明:")
@@ -127,14 +134,14 @@ def show_usage_instructions():
     print("   - karlach-buckets: 查看情绪状态系统")
     print("   - karlach-worldbook: 获取世界观设定")
 
+
 def main():
     """主演示函数"""
     print("🎉 Karlach MCP工具集成完成!")
     print("=" * 60)
     
-    # 切换到正确的目录
-    import os
-    os.chdir(Path(__file__).parent)
+    # 不再切换到示例目录，直接使用仓库根目录定位文件
+    # ...existing code...
     
     # 运行演示
     demonstrate_karlach_tools()
@@ -145,6 +152,7 @@ def main():
     print("🔥 Karlach已成功集成到MCP工具链中!")
     print("现在你可以通过MCP协议访问所有Karlach角色功能。")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     main()

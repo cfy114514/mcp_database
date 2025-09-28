@@ -11,7 +11,10 @@ def test_karlach_mcp_tools():
     """测试karlach MCP工具"""
     print("🧪 测试Karlach MCP工具功能...")
     
-    mcp_dir = Path("mcp-persona-uozumi")
+    # 从脚本位置向上查找项目根目录
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent
+    mcp_dir = project_root / "mcp-persona-uozumi"
     if not mcp_dir.exists():
         print("❌ MCP目录不存在")
         return False
@@ -25,7 +28,7 @@ def test_karlach_mcp_tools():
     print("✅ 服务器文件存在")
     
     # 检查karlach配置文件
-    karlach_dir = Path("configs/personas/karlach")
+    karlach_dir = project_root / "configs" / "personas" / "karlach"
     if not karlach_dir.exists():
         print("❌ Karlach配置目录不存在")
         return False
@@ -77,9 +80,14 @@ def test_mcp_server_syntax():
     print("\n🔍 测试MCP服务器语法...")
     
     try:
+        # 从脚本位置向上查找项目根目录
+        script_dir = Path(__file__).parent
+        project_root = script_dir.parent
+        server_file = project_root / "mcp-persona-uozumi" / "dist" / "server.js"
+        
         # 尝试验证Node.js语法
         result = subprocess.run([
-            "node", "-c", "mcp-persona-uozumi/dist/server.js"
+            "node", "-c", str(server_file)
         ], capture_output=True, text=True)
         
         if result.returncode == 0:

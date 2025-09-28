@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "knowledge-base-http": {
+      "url": "http://localhost:8100"
+    },
+    "embedding-memory-http": {
+      "url": "http://localhost:8001"
+    }
+  }
+}

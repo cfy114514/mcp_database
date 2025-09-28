@@ -1,0 +1,36 @@
+{
+  "servers": {
+    "node": {
+      "command": "node",
+      "args": ["./mcp-persona-uozumi/dist/server.js"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "KnowledgeBase": {
+      "command": "python",
+      "args": ["knowledge_base_mcp.py"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    "context-aggregator": {
+      "command": "python",
+      "args": ["context_aggregator_mcp.py"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    "embedding-context-aggregator": {
+      "command": "python",
+      "args": ["embedding_context_aggregator_mcp.py"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  }
+}

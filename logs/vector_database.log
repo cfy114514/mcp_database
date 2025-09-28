@@ -233,3 +233,108 @@ ERROR:KnowledgeBase:搜索时发生错误: list index out of range
 INFO:     127.0.0.1:7139 - "POST /search HTTP/1.1" 200 OK
 INFO:     127.0.0.1:7147 - "POST /search HTTP/1.1" 200 OK
 INFO:     127.0.0.1:7155 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12073 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12099 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12102 - "GET /stats HTTP/1.1" 404 Not Found
+INFO:KnowledgeBase:成功保存 591 个向量和 567 个文档
+INFO:KnowledgeBase:开始为 591 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 591 个向量。
+INFO:     127.0.0.1:12104 - "POST /add HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12114 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12123 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12136 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12144 - "POST /search HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 592 个向量和 567 个文档
+INFO:KnowledgeBase:开始为 592 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 592 个向量。
+INFO:     127.0.0.1:12154 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 593 个向量和 567 个文档
+INFO:KnowledgeBase:开始为 593 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 593 个向量。
+INFO:     127.0.0.1:12163 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 594 个向量和 567 个文档
+INFO:KnowledgeBase:开始为 594 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 594 个向量。
+INFO:     127.0.0.1:12171 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 595 个向量和 567 个文档
+INFO:KnowledgeBase:开始为 595 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 595 个向量。
+INFO:     127.0.0.1:12180 - "POST /add HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12189 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12197 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12206 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12216 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12225 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12233 - "POST /search HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 596 个向量和 568 个文档
+INFO:KnowledgeBase:开始为 596 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 596 个向量。
+INFO:     127.0.0.1:12241 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 597 个向量和 569 个文档
+INFO:KnowledgeBase:开始为 597 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 597 个向量。
+INFO:     127.0.0.1:12251 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 598 个向量和 570 个文档
+INFO:KnowledgeBase:开始为 598 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 598 个向量。
+INFO:     127.0.0.1:12260 - "POST /add HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12270 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12279 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12288 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12297 - "POST /search HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 599 个向量和 571 个文档
+INFO:KnowledgeBase:开始为 599 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 599 个向量。
+INFO:     127.0.0.1:12305 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 600 个向量和 572 个文档
+INFO:KnowledgeBase:开始为 600 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 600 个向量。
+INFO:     127.0.0.1:12314 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 601 个向量和 573 个文档
+INFO:KnowledgeBase:开始为 601 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 601 个向量。
+INFO:     127.0.0.1:12325 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 602 个向量和 574 个文档
+INFO:KnowledgeBase:开始为 602 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 602 个向量。
+INFO:     127.0.0.1:12335 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 603 个向量和 575 个文档
+INFO:KnowledgeBase:开始为 603 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 603 个向量。
+INFO:     127.0.0.1:12345 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 604 个向量和 576 个文档
+INFO:KnowledgeBase:开始为 604 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 604 个向量。
+INFO:     127.0.0.1:12362 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 605 个向量和 577 个文档
+INFO:KnowledgeBase:开始为 605 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 605 个向量。
+INFO:     127.0.0.1:12407 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 606 个向量和 578 个文档
+INFO:KnowledgeBase:开始为 606 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 606 个向量。
+INFO:     127.0.0.1:12416 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 607 个向量和 579 个文档
+INFO:KnowledgeBase:开始为 607 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 607 个向量。
+INFO:     127.0.0.1:12423 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 608 个向量和 580 个文档
+INFO:KnowledgeBase:开始为 608 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 608 个向量。
+INFO:     127.0.0.1:12432 - "POST /add HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12442 - "POST /search HTTP/1.1" 200 OK
+ERROR:KnowledgeBase:搜索时发生错误: list index out of range
+INFO:     127.0.0.1:12450 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12460 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12468 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12476 - "POST /search HTTP/1.1" 200 OK

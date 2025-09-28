@@ -19,3 +19,5 @@ pids/
 # Data artifacts (adjust if you want to version data)
 data/*.npy
 indices/
+logs/memory_library.log
+logs/vector_database.log

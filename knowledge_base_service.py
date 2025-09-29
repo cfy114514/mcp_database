@@ -48,18 +48,18 @@ class SearchResponse(BaseModel):
 class EmbeddingAPI:
     def __init__(self):
         self.api_key = os.getenv("EMBEDDING_API_KEY")
-        if not self.api_key:
-            raise ValueError("EMBEDDING_API_KEY not found in environment variables")
-        
+        # 不在初始化阶段强制要求 API Key，避免服务启动失败；在真正调用时检查
         self.model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
         self.api_url = "https://api.siliconflow.cn/v1/embeddings"
-        self.api_key = os.getenv("EMBEDDING_API_KEY", "sk-sgrrueslsskswlfcrefyqyeuffunfxjswmmzdicdtgksqqxr")
+        # 仅当提供了 key 时才设置 Authorization 头
         self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
+            "Content-Type": "application/json",
         }
     
     def create_embedding(self, text: str, encoding_format: str = "float") -> List[float]:
+        if not self.api_key:
+            raise ValueError("EMBEDDING_API_KEY not set; cannot create embeddings. Set it in .env or environment.")
         try:
             response = requests.post(
                 self.api_url,
@@ -285,6 +285,9 @@ class VectorDatabase:
     def rebuild_all_vectors(self):
         """为当前所有文档重建向量，确保与文档一一对应。"""
         try:
+            if not self.embedding_api.api_key:
+                logger.warning("跳过全量重建向量：未设置 EMBEDDING_API_KEY。")
+                return False
             logger.info(f"开始为 {len(self.document_ids)} 个文档全量重建向量...")
             new_vectors = []
             for doc_id in self.document_ids:

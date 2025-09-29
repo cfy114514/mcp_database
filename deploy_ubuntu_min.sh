@@ -249,4 +249,4 @@ case "${1:-}" in
     echo "用法: bash $(basename "$0") {install|start|stop|restart|status|logs}"
     exit 1
     ;;
-endcase
+esac

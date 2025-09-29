@@ -5,7 +5,7 @@ pydantic==2.5.0
 python-dotenv==1.0.0
 
 # MCP 相关
-mcp==0.3.0
+mcp>=1.12,<2
 
 # HTTP 客户端
 requests==2.31.0
@@ -31,4 +31,6 @@ ujson==5.8.0
 
 # 异步支持
 aiofiles==23.2.1
-asyncio==3.4.3
+
+# asyncio 属于标准库，勿通过 pip 安装，避免冲突
+# asyncio

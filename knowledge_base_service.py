@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from pydantic.config import ConfigDict
 from typing import List, Optional, Dict, Union
@@ -464,90 +465,118 @@ class VectorDatabase:
         return True
 
 # 创建 FastAPI 应用
-app = FastAPI()
-db = VectorDatabase()
+app = FastAPI(title="Knowledge Base Service", version="1.0.0")
 
-@app.post("/add", response_model=Dict)
-async def add_document(document: Document):
-    success = db.add_document(document, save=True) # 为了简单，这里设为True，但在高频场景应为False
-    if success:
-        return {"success": True, "message": "文档已添加并立即保存和索引。"}
-    else:
-        raise HTTPException(status_code=500, detail="添加文档时出错")
+# 全局数据库实例（data/ 固定路径；端口由环境变量 KB_PORT 控制绑定）
+_db = VectorDatabase(dimension=1024)
 
-@app.post("/batch_add", response_model=Dict)
-async def batch_add_documents(documents: List[Document]):
-    success = db.batch_add_documents(documents)
-    if success:
-        return {"success": True, "message": f"成功批量处理 {len(documents)} 个文档。"}
-    else:
-        raise HTTPException(status_code=500, detail="批量添加文档时出错")
-
-@app.post("/search")
-async def search(request: SearchRequest):
-    top_k = request.top_k if request.top_k is not None else 5
-    tags_all = request.tags_all or request.tags
-
-    results = db.search(
-        query=request.query,
-        top_k=top_k,
-        metadata_filter=request.metadata_filter,
-        tags_all=tags_all,
-        tags_any=request.tags_any,
-        priority_tags=request.priority_tags
-    )
-
-    response_results = []
-    for res in results:
-        doc = res.get("document")
-        score = float(res.get("score", 0.0)) if res.get("score") is not None else 0.0
-        if doc is not None:
-            doc_dict = doc.model_dump() if hasattr(doc, "model_dump") else doc.dict() if hasattr(doc, "dict") else doc
-            response_results.append({"document": doc_dict, "score": score})
-
-    return {"success": True, "results": response_results}
-
-@app.post("/save", response_model=Dict)
-async def save_data():
+@app.middleware("http")
+async def add_charset_middleware(request, call_next):
+    response = await call_next(request)
+    # 统一为 JSON 响应添加 charset，避免中文乱码
     try:
-        db._save_data()
-        return {"success": True, "message": "数据已成功保存到磁盘。"}
-    except Exception as e:
-        logger.error(f"手动保存数据时出错: {e}")
-        raise HTTPException(status_code=500, detail=f"保存数据失败: {e}")
-
-@app.post("/rebuild_index", response_model=Dict)
-async def rebuild_index():
-    try:
-        db.rebuild_index()
-        return {"success": True, "message": "FAISS索引已成功重建。"}
-    except Exception as e:
-        logger.error(f"手动重建索引时出错: {e}")
-        raise HTTPException(status_code=500, detail=f"重建索引失败: {e}")
-
-@app.get("/")
-async def root():
-    return {"status": "ok", "service": "knowledge_base_service"}
+        ctype = response.headers.get("content-type", "")
+        if ctype.startswith("application/json") and "charset" not in ctype.lower():
+            response.headers["content-type"] = "application/json; charset=utf-8"
+    except Exception:
+        pass
+    return response
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    try:
+        ready = _db.index is not None and len(_db.vectors) == len(_db.document_ids) == len(_db.documents)
+        return JSONResponse(
+            content={"status": "ok", "ready": ready},
+            media_type="application/json; charset=utf-8",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stats")
 async def stats():
     try:
-        return {
-            "vectors": len(db.vectors),
-            "documents": len(db.documents),
-            "doc_ids": len(db.document_ids),
-            "index_ntotal": db.index.ntotal if db.index is not None else 0,
-            "mismatch": len(db.vectors) != len(db.documents)
-        }
+        docs = len(_db.documents)
+        vecs = len(_db.vectors)
+        ntotal = int(_db.index.ntotal) if _db.index is not None else 0
+        mismatch = docs != vecs or (ntotal != 0 and ntotal != vecs)
+        tags = sorted(list(_db.tag_index.keys())) if _db.tag_index else []
+        return JSONResponse(
+            content={
+                "success": True,
+                "documents": docs,
+                "vectors": vecs,
+                "index_ntotal": ntotal,
+                "mismatch": mismatch,
+                "tags": tags,
+            },
+            media_type="application/json; charset=utf-8",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/rebuild_all_vectors", response_model=Dict)
+@app.post("/add")
+async def add_document(document: Document):
+    ok = _db.add_document(document, save=True)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to add document. Check embeddings/API key.")
+    return {"success": True, "id": document.id}
+
+@app.post("/batch_add")
+async def batch_add(documents: List[Document]):
+    ok = _db.batch_add_documents(documents)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to batch add documents.")
+    return {"success": True, "count": len(documents)}
+
+@app.post("/rebuild_index")
+async def rebuild_index():
+    try:
+        _db.rebuild_index()
+        return {"success": True, "index_ntotal": int(_db.index.ntotal) if _db.index else 0}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/rebuild_all_vectors")
 async def rebuild_all_vectors():
-    ok = db.rebuild_all_vectors()
-    if ok:
-        return {"success": True, "message": "已为所有文档重建向量并重建索引。"}
+    ok = _db.rebuild_all_vectors()
+    if not ok:
+        return JSONResponse(content={"success": False, "message": "Skipped or failed. Check EMBEDDING_API_KEY."}, status_code=400)
+    return {"success": True}
+
+@app.post("/save")
+async def save():
+    try:
+        _db._save_data()
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search")
+async def search(req: SearchRequest):
+    try:
+        # 兼容：MCP/调用方可能传 tags_all/tags_any/priority_tags
+        results = _db.search(
+            query=req.query,
+            tags=req.tags,
+            top_k=req.top_k or 5,
+            metadata_filter=req.metadata_filter,
+            tags_all=req.tags_all,
+            tags_any=req.tags_any,
+        )
+        # 返回嵌套结构 [{"document": <Document>, "score": <float>}]，以便 MCP 工具解包
+        formatted = []
+        for item in results:
+            doc: Document = item["document"]
+            formatted.append({
+                "document": doc.model_dump(),
+                "score": item.get("score", 0.0),
+            })
+        return JSONResponse(content={"success": True, "results": formatted}, media_type="application/json; charset=utf-8")
+    except Exception as e:
+        logger.exception("/search failed")
+        return JSONResponse(content={"success": False, "message": str(e)}, status_code=500)
+
+if __name__ == "__main__":
+    port = int(os.getenv("KB_PORT", "8001"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

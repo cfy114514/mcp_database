@@ -32,5 +32,26 @@
         "PYTHONPATH": "${workspaceFolder}"
       }
     }
+  },
+  "chat.mcp.serverSampling": {
+    "mcp_database/.vscode/mcp.json: embedding-context-aggregator": {
+      "allowedModels": [
+        "github.copilot-chat/gpt-4.1",
+        "github.copilot-chat/claude-3.5-sonnet",
+        "github.copilot-chat/claude-3.7-sonnet",
+        "github.copilot-chat/claude-3.7-sonnet-thought",
+        "github.copilot-chat/claude-sonnet-4",
+        "github.copilot-chat/gemini-2.0-flash-001",
+        "github.copilot-chat/Gemini-models/gemini-2.5-flash",
+        "github.copilot-chat/gemini-2.5-pro",
+        "github.copilot-chat/Gemini-models/gemini-2.5-pro",
+        "github.copilot-chat/gpt-4o",
+        "github.copilot-chat/gpt-5",
+        "github.copilot-chat/gpt-5-mini",
+        "github.copilot-chat/grok-code-fast-1",
+        "github.copilot-chat/o3-mini",
+        "github.copilot-chat/o4-mini"
+      ]
+    }
   }
 }

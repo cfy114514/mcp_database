@@ -1,10 +1,10 @@
 {
   "stats": {
-    "total_documents": 575,
-    "successful_imports": 575,
+    "total_documents": 14,
+    "successful_imports": 14,
     "failed_imports": 0,
     "retried_chunks": 0,
-    "last_successful_id": "doc_1758866653.556319_349"
+    "last_successful_id": "doc_1759129220.8477895_3"
   },
-  "timestamp": 1758866653.652552
+  "timestamp": 1759129220.9383426
 }

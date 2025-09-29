@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from uuid import uuid4
 
 load_dotenv()
 
@@ -277,9 +278,11 @@ class EmbeddingMemoryProcessor:
     def save_memory_segment(self, memory: MemorySegment, user_id: str) -> bool:
         """保存记忆片段到知识库"""
         try:
-            # 创建文档数据
+            # 创建文档数据（生成 doc_id 以满足服务端校验）
             keywords_list = memory.keywords or []
+            doc_id = f"mem_{user_id}_{uuid4().hex}"
             document_data = {
+                "doc_id": doc_id,
                 "content": memory.content,
                 "tags": ["memory", memory.memory_type] + keywords_list[:5],  # 限制关键词数量
                 "metadata": {
@@ -301,10 +304,12 @@ class EmbeddingMemoryProcessor:
             if response.status_code == 200:
                 result = response.json()
                 if result.get("success"):
-                    logger.info(f"记忆片段保存成功: {result.get('document_id')}")
+                    logger.info(f"记忆片段保存成功: {doc_id}")
                     return True
-                    
-            logger.error(f"保存记忆片段失败: {response.status_code}")
+                else:
+                    logger.error(f"保存记忆片段失败（返回非 success）: {result}")
+            else:
+                logger.error(f"保存记忆片段失败: HTTP {response.status_code} - {response.text}")
             return False
             
         except Exception as e:
@@ -361,12 +366,25 @@ class EmbeddingMemoryProcessor:
     def search_memories(self, user_id: str, query: str = "", top_k: int = 5, memory_type: Optional[str] = None) -> List[Dict]:
         """搜索用户记忆"""
         try:
+            # 基础参数
             search_params = {
                 "query": query or "用户记忆",
                 "tags": ["memory"],
                 "top_k": top_k,
                 "metadata_filter": {"user_id": user_id}
             }
+            
+            # 对短/泛化查询放大召回窗口（20~50），提升召回率
+            q = (query or "").strip()
+            # 去掉空白后的长度与分词数的简单启发式判断（中文短词或极少词）
+            import re
+            compact_len = len(re.sub(r"\s+", "", q))
+            token_cnt = len([t for t in re.findall(r"[\w\u4e00-\u9fff]+", q) if t])
+            if not q or compact_len <= 6 or token_cnt <= 2:
+                expanded_top_k = max(top_k, 20)
+                expanded_top_k = min(expanded_top_k, 50)
+                search_params["top_k"] = expanded_top_k
+                logger.info(f"短/泛化查询，扩大 KB 检索 top_k={expanded_top_k} (原 {top_k})，query='{q}'")
             
             # 添加记忆类型过滤
             if memory_type:
@@ -380,7 +398,28 @@ class EmbeddingMemoryProcessor:
             if response.status_code == 200:
                 result = response.json()
                 if result.get("success"):
-                    return result.get("results", [])
+                    raw_items = result.get("results", [])
+                    normalized: List[Dict] = []
+                    for item in raw_items:
+                        # 兼容后端: {"document": {...}, "score": 0.xx}
+                        doc = item.get("document") if isinstance(item, dict) else None
+                        score = item.get("score") if isinstance(item, dict) else None
+                        if isinstance(doc, dict):
+                            # 标准化键: 确保有 content/tags/metadata 顶层字段，保留 id/doc_id 与 score
+                            doc_copy = dict(doc)
+                            if "id" in doc_copy and "doc_id" not in doc_copy:
+                                doc_copy["doc_id"] = doc_copy["id"]
+                            if score is not None:
+                                doc_copy["score"] = score
+                            normalized.append(doc_copy)
+                        elif isinstance(item, dict):
+                            # 已经是扁平结构，直接透传
+                            normalized.append(item)
+                    
+                    # 最终只返回调用者请求的 top_k 条，接口表现稳定
+                    if top_k and len(normalized) > top_k:
+                        normalized = normalized[:top_k]
+                    return normalized
             
             return []
             

@@ -54,7 +54,8 @@ def build_prompt_with_context(
     user_query: str = "",
     memory_top_k: int = 3,
     user_name: str = "用户",
-    char_name: Optional[str] = None
+    char_name: Optional[str] = None,
+    include_persona_prompt: bool = False
 ) -> str:
     """
     使用embedding模型动态构建包含长期记忆的系统提示。
@@ -66,12 +67,15 @@ def build_prompt_with_context(
         memory_top_k: 检索记忆的数量
         user_name: 用户名称，用于替换 {{user}} 占位符
         char_name: 角色名称，用于替换 {{char}} 占位符（如果不提供，使用 persona_name）
+        include_persona_prompt: 是否在输出中附加基础 persona 提示（默认 False）
 
     Returns:
         str: 组装完成的最终 System Prompt 字符串
     """
     try:
         logger.info(f"为用户 {user_id} 构建 {persona_name} 角色的上下文提示")
+        # 限制记忆条数至最多3条
+        memory_top_k = max(1, min(memory_top_k or 3, 3))
         
         # 设置默认角色名
         if char_name is None:
@@ -86,12 +90,15 @@ def build_prompt_with_context(
         
         # 2. 使用embedding检索用户记忆
         memories = memory_processor.search_memories(user_id, user_query, memory_top_k)
+        # 最终截断
+        if isinstance(memories, list):
+            memories = memories[:memory_top_k]
         
         # 3. 格式化记忆内容
         memory_section = _format_memories_as_supplement(memories)
         
-        # 4. 智能拼接最终提示
-        final_prompt = _combine_prompt_and_memories(original_prompt, memory_section)
+        # 4. 智能拼接最终提示（按需附加 persona 提示）
+        final_prompt = _combine_prompt_and_memories(original_prompt, memory_section, include_persona_prompt)
         
         logger.info(f"成功构建上下文提示，包含 {len(memories)} 条记忆")
         return final_prompt
@@ -162,26 +169,39 @@ def get_user_memories(
     """
     try:
         logger.info(f"检索用户 {user_id} 的记忆，查询: '{query}'")
+        # 限制最多3条
+        top_k = max(1, min(top_k or 3, 3))
         
         memories = memory_processor.search_memories(user_id, query, top_k, memory_type)
+        if isinstance(memories, list):
+            memories = memories[:top_k]
         
-        # 格式化记忆用于展示
+        # 兼容两种结构: 1) 扁平文档 2) {document: {...}, score: x}
         formatted_memories = []
-        for memory in memories:
+        for item in memories:
+            source = item
+            score = None
+            if isinstance(item, dict) and "document" in item:
+                source = item.get("document", {})
+                score = item.get("score")
+            if not isinstance(source, dict):
+                continue
             formatted_memories.append({
-                "content": memory.get("content", ""),
-                "importance": memory.get("metadata", {}).get("importance", 0),
-                "memory_type": memory.get("metadata", {}).get("memory_type", "unknown"),
-                "created_at": memory.get("metadata", {}).get("created_at", ""),
-                "keywords": memory.get("metadata", {}).get("keywords", []),
-                "tags": memory.get("tags", [])
+                "content": source.get("content", ""),
+                "importance": source.get("metadata", {}).get("importance", 0),
+                "memory_type": source.get("metadata", {}).get("memory_type", "unknown"),
+                "created_at": source.get("metadata", {}).get("created_at", ""),
+                "keywords": source.get("metadata", {}).get("keywords", []),
+                "tags": source.get("tags", []),
+                "id": source.get("id") or source.get("doc_id"),
+                **({"score": score} if score is not None else {})
             })
         
         return {
             "success": True,
             "user_id": user_id,
             "total_memories": len(formatted_memories),
-            "memories": formatted_memories
+            "memories": formatted_memories[:top_k]
         }
         
     except Exception as e:
@@ -402,12 +422,17 @@ def _format_memories_as_supplement(memories: List[Dict]) -> str:
     
     return ""
 
-def _combine_prompt_and_memories(original_prompt: str, memory_section: str) -> str:
-    """智能拼接原始提示和记忆内容"""
-    if memory_section:
-        return f"{memory_section}\n\n---\n\n{original_prompt}"
+def _combine_prompt_and_memories(original_prompt: str, memory_section: str, include_persona_prompt: bool = False) -> str:
+    """智能拼接原始提示和记忆内容。
+    当 include_persona_prompt 为 False 时，仅返回记忆段（若有）；否则再附加基础 persona 提示。
+    """
+    if include_persona_prompt:
+        if memory_section:
+            return f"{memory_section}\n\n---\n\n{original_prompt}"
+        else:
+            return original_prompt
     else:
-        return original_prompt
+        return memory_section or ""
 
 def _check_knowledge_base_status() -> bool:
     """检查知识库服务状态"""

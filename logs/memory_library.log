@@ -1,15 +1,77 @@
 INFO:KnowledgeBase:VectorDatabase data_dir set to: C:\Users\Administrator\Documents\mcp_database\data
-INFO:KnowledgeBase:成功加载 537 个文档
-WARNING:KnowledgeBase:向量数量 (553) 与文档数量 (537) 不匹配。可能需要重建向量。
-INFO:KnowledgeBase:成功加载 553 个向量
-INFO:KnowledgeBase:开始为 553 个向量重建FAISS索引...
-INFO:KnowledgeBase:FAISS索引重建完成，共 553 个向量。
-INFO:     Started server process [14704]
+INFO:KnowledgeBase:成功加载 580 个文档
+WARNING:KnowledgeBase:向量数量 (608) 与文档数量 (580) 不匹配。可能需要重建向量。
+INFO:KnowledgeBase:成功加载 608 个向量
+INFO:KnowledgeBase:开始为 608 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 608 个向量。
+INFO:     Started server process [17860]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     127.0.0.1:14163 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14589 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2559 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6808 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:12071 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14935 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1196 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3796 - "GET /stats HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:4552 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4618 - "POST /add HTTP/1.1" 422 Unprocessable Content
+INFO:KnowledgeBase:开始为 608 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 608 个向量。
+INFO:     127.0.0.1:8677 - "POST /rebuild_index HTTP/1.1" 200 OK
+INFO:     127.0.0.1:8738 - "POST /search HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:10097 - "POST /add HTTP/1.1" 422 Unprocessable Content
+INFO:KnowledgeBase:成功保存 609 个向量和 581 个文档
+INFO:KnowledgeBase:开始为 609 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 609 个向量。
+INFO:     127.0.0.1:11409 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 610 个向量和 582 个文档
+INFO:KnowledgeBase:开始为 610 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 610 个向量。
+INFO:     127.0.0.1:11415 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 611 个向量和 583 个文档
+INFO:KnowledgeBase:开始为 611 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 611 个向量。
+INFO:     127.0.0.1:11421 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 612 个向量和 584 个文档
+INFO:KnowledgeBase:开始为 612 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 612 个向量。
+INFO:     127.0.0.1:11426 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 613 个向量和 585 个文档
+INFO:KnowledgeBase:开始为 613 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 613 个向量。
+INFO:     127.0.0.1:11432 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 614 个向量和 586 个文档
+INFO:KnowledgeBase:开始为 614 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 614 个向量。
+INFO:     127.0.0.1:11437 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:开始为 614 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 614 个向量。
+INFO:     127.0.0.1:11443 - "POST /rebuild_index HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11445 - "POST /search HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 615 个向量和 587 个文档
+INFO:KnowledgeBase:开始为 615 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 615 个向量。
+INFO:     127.0.0.1:12470 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 616 个向量和 588 个文档
+INFO:KnowledgeBase:开始为 616 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 616 个向量。
+INFO:     127.0.0.1:12477 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 617 个向量和 589 个文档
+INFO:KnowledgeBase:开始为 617 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 617 个向量。
+INFO:     127.0.0.1:12484 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 618 个向量和 590 个文档
+INFO:KnowledgeBase:开始为 618 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 618 个向量。
+INFO:     127.0.0.1:12490 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 619 个向量和 591 个文档
+INFO:KnowledgeBase:开始为 619 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 619 个向量。
+INFO:     127.0.0.1:12496 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:成功保存 620 个向量和 592 个文档
+INFO:KnowledgeBase:开始为 620 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 620 个向量。
+INFO:     127.0.0.1:12501 - "POST /add HTTP/1.1" 200 OK
+INFO:KnowledgeBase:开始为 620 个向量重建FAISS索引...
+INFO:KnowledgeBase:FAISS索引重建完成，共 620 个向量。
+INFO:     127.0.0.1:12507 - "POST /rebuild_index HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12509 - "POST /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12985 - "POST /search HTTP/1.1" 200 OK

@@ -77,14 +77,25 @@ def main():
             else:
                 print(f"\n--- Found {len(results)} results: ---")
                 for i, result in enumerate(results, 1):
-                    doc = result.get("document", {})
+                    doc_obj = result.get("document", {})
                     score = result.get("score", 0.0)
+                    # 兼容离线 Document 对象与通过 HTTP 返回的 dict
+                    if hasattr(doc_obj, "model_dump"):
+                        doc = doc_obj.model_dump()
+                    elif hasattr(doc_obj, "dict"):
+                        doc = doc_obj.dict()
+                    elif isinstance(doc_obj, dict):
+                        doc = doc_obj
+                    else:
+                        doc = {}
                     print(f"\n[{i}] Document ID: {doc.get('id', 'N/A')}")
-                    print(f"    Score: {score:.4f}")
+                    print(f"    Score: {float(score):.4f}")
                     print(f"    Tags: {doc.get('tags', [])}")
-                    print(f"    Content: {doc.get('content', '')[:200]}...") # Print a snippet
-                    if doc.get('metadata'):
-                        print(f"    Metadata: {doc.get('metadata')}")
+                    content = doc.get('content', '') or ''
+                    print(f"    Content: {content[:200]}...")
+                    metadata = doc.get('metadata') or {}
+                    if metadata:
+                        print(f"    Metadata: {metadata}")
 
         except (EOFError, KeyboardInterrupt):
             print("\n\nExiting interactive search. Goodbye!")

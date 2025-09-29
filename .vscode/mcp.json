@@ -29,7 +29,10 @@
       "args": ["embedding_context_aggregator_mcp.py"],
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}"
+        "PYTHONPATH": "${workspaceFolder}",
+        "KB_SERVICE_URL": "http://localhost:8001",
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8"
       }
     }
   }

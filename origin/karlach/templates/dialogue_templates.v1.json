@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "notes": "卡菈克自由发挥模板池，按语气桶分类，供未匹配关卡时的随机采样",
+  "notes": "卡菈克自由发挥与情境模板，按语气桶分类，并提供 narrator_move 三行模板。",
   "templates": {
     "Curt": [
       "滚远点。我胸口正热得想杀人。",
@@ -51,7 +51,7 @@
       "欠你一份人情。不会忘。"
     ],
     "Resolute": [
-      "路在刀上，火在胸口.",
+      "路在刀上，火在胸口。",
       "等我三息——好。现在你跟紧，不回头。",
       "把刀举稳，把心放热。我们不做祭品。",
       "今天不算账，明日也要算。欠我的，别想跑。",
@@ -127,7 +127,6 @@
     "usage_note": "situational_templates 根据对话上下文动态触发，优先级高于基础模板池",
     "fallback_strategy": "如果所有模板都不适用，回退到 Guarded 桶的基础模板",
     "template_cooldown": "同一模板在短期内避免重复使用，维持对话新鲜感",
-
     "narrator_move": {
       "priority": "high",
       "preferred_buckets": ["Resolute", "Warm"],
@@ -135,9 +134,7 @@
       "cooldown": 3,
       "description": "检测到移动/离开意图时，运行时应优先选择此情境模板并返回旁白/角色/选项三行结构；若模板被黑名单或不可用，则回退到 Guarded 桶并提供交互选项。"
     },
-
     "blacklist_note": "运行时请读取 configs/personas/karlach/buckets.v1.json -> template_blacklist 并应用相应惩罚/禁止规则",
-
     "notes": "为确保对话开放性，建议对 narrator_move 使用更严格的 avoid_last_n/cooldown 策略，并在 kalake.txt 中加入强制调用 get_karlach_templates(narrator_move) 的规则"
   }
 }

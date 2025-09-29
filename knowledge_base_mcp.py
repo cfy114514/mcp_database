@@ -46,79 +46,67 @@ def search_documents(
 ) -> dict:
     """
     Searches documents in the knowledge base with advanced filtering.
-    
-    Args:
-        query: The natural language search query.
-        tags_all: A list of tags that must all be present in the results (AND logic).
-        tags_any: A list of tags where at least one must be present in the results (OR logic).
-        priority_tags: A list of tags to boost the score of, making them more likely to appear first.
-        top_k: The maximum number of results to return.
-        metadata_filter: Optional dictionary of metadata to filter results.
-        tags: Kept for backward compatibility, behaves like tags_all.
-
-    Returns:
-        A dictionary containing the search results.
+    为避免对话应用上下文爆炸，将结果数量限制在1-3条最高分。
     """
     try:
         # Handle backward compatibility for the 'tags' parameter
         if tags and not tags_all:
             tags_all = tags
 
+        # 裁剪 top_k 至 1-3
+        effective_top_k = max(1, min((top_k if top_k is not None else 3), 3))
+
         results = db.search(
             query=query, 
             tags_all=tags_all,
             tags_any=tags_any,
             priority_tags=priority_tags,
-            top_k=top_k if top_k is not None else 5,
+            top_k=effective_top_k,
             metadata_filter=metadata_filter
         )
-        return {
-            "success": True,
-            "results": [doc.model_dump() for doc in results]
-        }
+
+        formatted: List[Dict] = []
+        for item in results:
+            doc_obj = item
+            score = None
+            if isinstance(item, dict) and "document" in item:
+                doc_obj = item.get("document")
+                score = item.get("score")
+            # 序列化 Document 或字典（避免直接用 hasattr 触发类型检查器告警）
+            if isinstance(doc_obj, Document):
+                doc_dict = doc_obj.model_dump()
+            elif isinstance(doc_obj, dict):
+                doc_dict = dict(doc_obj)
+            else:
+                continue
+            if score is not None:
+                try:
+                    doc_dict["score"] = float(score)
+                except Exception:
+                    doc_dict["score"] = score
+            formatted.append(doc_dict)
+
+        # 最终再次截断，确保最多返回3条
+        formatted = formatted[:effective_top_k]
+        return {"success": True, "results": formatted}
     except Exception as e:
         logger.error(f"Search error: {str(e)}")
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        return {"success": False, "message": str(e)}
 
 @mcp.tool()
 def add_document(content: str, tags: List[str], doc_id: Optional[str] = None, metadata: Optional[Dict] = None) -> dict:
-    """
-    Adds a new document to the knowledge base.
-    
-    Args:
-        content: The text content of the document.
-        tags: A list of tags to associate with the document.
-        doc_id: An optional unique ID for the document. If not provided, one will be generated.
-        metadata: Optional dictionary of metadata.
-
-    Returns:
-        A dictionary with the result of the operation.
-    """
+    """Adds a new document to the knowledge base."""
     try:
-        # If doc_id is not provided, the service will generate one.
-        # We need to create a temporary one for the Pydantic model, but the service's will be canonical.
         import time
         temp_id = doc_id if doc_id else f"temp_{int(time.time() * 1000)}"
 
         document = Document(
-            id=temp_id,
+            doc_id=temp_id,
             content=content,
             tags=tags,
             metadata=metadata
         )
-        
-        # The service's add_document now handles ID generation if not provided
-        # and returns the final document ID.
-        # We need to adapt to this if we want to use the service layer directly.
-        # For now, we'll stick to the db layer which has a simpler `add_document`
-        success = db.add_document(document)
-        
-        # If we were using the service endpoint, the logic would be different.
-        # This MCP tool directly interacts with the DB layer.
-        
+        success = db.add_document(document, save=True)
         return {
             "success": success,
             "document_id": document.id,
@@ -126,10 +114,7 @@ def add_document(content: str, tags: List[str], doc_id: Optional[str] = None, me
         }
     except Exception as e:
         logger.error(f"Error adding document: {str(e)}")
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        return {"success": False, "message": str(e)}
 
 @mcp.tool()
 def get_stats() -> dict:
@@ -154,6 +139,24 @@ def get_stats() -> dict:
             "success": False,
             "message": str(e)
         }
+
+@mcp.tool()
+def get_status() -> dict:
+    """返回知识库运行状态（就绪、索引、计数与标签）。"""
+    try:
+        index_ntotal = db.index.ntotal if getattr(db, "index", None) is not None else 0
+        status = {
+            "ready": (db.index is not None) and (len(db.vectors) == len(db.documents)) and (index_ntotal == len(db.vectors)),
+            "documents": len(db.documents),
+            "vectors": len(db.vectors),
+            "index_ntotal": index_ntotal,
+            "mismatch": len(db.vectors) != len(db.documents),
+            "tags": list(db.tag_index.keys())
+        }
+        return {"success": True, "status": status}
+    except Exception as e:
+        logger.error(f"Error getting status: {str(e)}")
+        return {"success": False, "message": str(e)}
 
 if __name__ == "__main__":
     # 启动 MCP 服务

@@ -14,6 +14,7 @@ import os
 import uvicorn
 import time
 import faiss  # 导入faiss
+from fastapi.responses import JSONResponse  # 新增：用于明确设置 charset
 
 # 加载环境变量
 load_dotenv()
@@ -114,11 +115,13 @@ class VectorDatabase:
                     data = json.load(f)
                     # Handle both list and dict formats
                     if isinstance(data, list):
+                        # list: preserve order explicitly
                         self.documents = {doc['id']: Document(**doc) for doc in data if 'id' in doc}
+                        self.document_ids = [doc['id'] for doc in data if 'id' in doc]
                     else:
+                        # dict: fall back to key order (may not reflect vector order)
                         self.documents = {k: Document(**v) for k, v in data.items()}
-                    
-                    self.document_ids = list(self.documents.keys())
+                        self.document_ids = list(self.documents.keys())
                     self._rebuild_tag_index()
                 logger.info(f"成功加载 {len(self.documents)} 个文档")
             except Exception as e:
@@ -130,21 +133,29 @@ class VectorDatabase:
         # Load vectors only if both files exist
         if vectors_file.exists() and docs_file.exists():
             try:
-                # 加载向量数据
                 loaded_vectors = np.load(str(vectors_file))
-                self.vectors = [vec for vec in loaded_vectors]  # 转换为列表
-                
-                # Verify vector and document count match
+                self.vectors = [vec for vec in loaded_vectors]
                 if len(self.vectors) != len(self.documents):
-                    logger.warning(f"向量数量 ({len(self.vectors)}) 与文档数量 ({len(self.documents)}) 不匹配。可能需要重建向量。")
-
+                    logger.warning(f"向量数量 ({len(self.vectors)}) 与文档数量 ({len(self.documents)}) 不匹配。将进行自动修复。")
                 logger.info(f"成功加载 {len(self.vectors)} 个向量")
             except Exception as e:
                 logger.error(f"加载向量数据时出错: {e}")
                 self.vectors = []
         else:
-            # If vectors don't exist, ensure the list is empty
             self.vectors = []
+
+        # Auto-heal: if mismatch, rebuild all vectors from documents to realign order and counts
+        try:
+            if self.documents and (len(self.vectors) != len(self.documents)):
+                logger.info("触发启动自修复：为所有文档重建向量以对齐数量与顺序…")
+                ok = self.rebuild_all_vectors()
+                if not ok:
+                    logger.warning("自动重建失败，服务将以未对齐状态继续运行。")
+        except Exception as e:
+            logger.error(f"启动自修复流程出错: {e}")
+
+        if self.vectors:
+            self.rebuild_index()
 
     def _save_data(self):
         """保存数据到磁盘"""
@@ -152,25 +163,47 @@ class VectorDatabase:
             vectors_file = self.data_dir / "vectors.npy"
             docs_file = self.data_dir / "documents.json"
             
-            # 确保向量是numpy数组并保存
-            if not self.vectors:
-                logger.info("没有向量数据需要保存。")
-                # 如果没有向量，但有文档，则清空文档文件
-                if docs_file.exists():
-                    with open(docs_file, 'w', encoding='utf-8') as f:
-                        json.dump({}, f)
-                return
-
-            vectors_array = np.array(self.vectors, dtype=np.float32)
-            np.save(str(vectors_file), vectors_array)
-            
-            # 保存文档数据
+            # 始终保存文档，使用与 self.document_ids 对齐的顺序列表，确保与向量顺序一致
+            ordered_docs = []
+            for doc_id in self.document_ids:
+                doc = self.documents.get(doc_id)
+                if doc is not None:
+                    ordered_docs.append(doc.model_dump())
             with open(docs_file, 'w', encoding='utf-8') as f:
-                json.dump({k: v.model_dump() for k, v in self.documents.items()}, f, ensure_ascii=False)
+                json.dump(ordered_docs, f, ensure_ascii=False)
+
+            # 保存向量（可能为空）；不再清空文档文件
+            if self.vectors:
+                vectors_array = np.array(self.vectors, dtype=np.float32)
+                np.save(str(vectors_file), vectors_array)
+            else:
+                # 若当前无向量，确保不存在旧的 vectors.npy，避免误导
+                try:
+                    if vectors_file.exists():
+                        vectors_file.unlink()
+                except Exception as e:
+                    logger.warning(f"删除旧向量文件失败: {e}")
             
-            logger.info(f"成功保存 {len(self.vectors)} 个向量和 {len(self.documents)} 个文档")
+            logger.info(f"已保存文档 {len(ordered_docs)} 条，向量 {len(self.vectors)} 条")
         except Exception as e:
             logger.error(f"保存数据时出错: {e}")
+
+    def _save_vectors_only(self):
+        """仅保存向量到磁盘，不改写 documents.json（用于向量重建）。"""
+        try:
+            vectors_file = self.data_dir / "vectors.npy"
+            if self.vectors:
+                vectors_array = np.array(self.vectors, dtype=np.float32)
+                np.save(str(vectors_file), vectors_array)
+                logger.info(f"已仅保存向量 {len(self.vectors)} 条（未改写 documents.json）")
+            else:
+                if vectors_file.exists():
+                    try:
+                        vectors_file.unlink()
+                    except Exception as e:
+                        logger.warning(f"删除旧向量文件失败: {e}")
+        except Exception as e:
+            logger.error(f"仅保存向量时出错: {e}")
 
     def add_document(self, document: Document, save: bool = False) -> bool:
         """
@@ -249,6 +282,31 @@ class VectorDatabase:
             logger.error(f"重建FAISS索引时出错: {e}")
             self.index = None
 
+    def rebuild_all_vectors(self):
+        """为当前所有文档重建向量，确保与文档一一对应。"""
+        try:
+            logger.info(f"开始为 {len(self.document_ids)} 个文档全量重建向量...")
+            new_vectors = []
+            for doc_id in self.document_ids:
+                doc = self.documents.get(doc_id)
+                if not doc:
+                    continue
+                vec = self.embedding_api.create_embedding(doc.content)
+                if isinstance(vec, str):
+                    import base64, numpy as np
+                    vec = np.frombuffer(base64.b64decode(vec), dtype=np.float32)
+                import numpy as np
+                new_vectors.append(np.array(vec, dtype=np.float32))
+            self.vectors = new_vectors
+            # 仅保存向量，避免覆盖较新的 documents.json
+            self._save_vectors_only()
+            self.rebuild_index()
+            logger.info("全量重建向量完成。")
+            return True
+        except Exception as e:
+            logger.error(f"全量重建向量失败: {e}")
+            return False
+
     def search(self, query: str, tags: Optional[List[str]] = None, top_k: int = 5, metadata_filter: Optional[Dict] = None,
              tags_all: Optional[List[str]] = None, tags_any: Optional[List[str]] = None, 
              priority_tags: Optional[List[str]] = None, boost: float = 1.5) -> List[Dict]:
@@ -270,21 +328,27 @@ class VectorDatabase:
 
             # --- FAISS Search ---
             query_vector = self.embedding_api.create_embedding(query)
+            import numpy as np
             query_vector_np = np.array([query_vector], dtype='float32')
 
             # FAISS search returns distances and indices (labels)
             # We search for a larger k to account for post-filtering
-            search_k = min(top_k * 5, len(candidate_indices))
+            search_k = min(max(top_k * 5, top_k), self.index.ntotal)
+            if search_k <= 0:
+                return []
             distances, indices = self.index.search(query_vector_np, search_k)  # type: ignore[misc]
 
             # --- Result Processing ---
             results = []
             seen_doc_ids = set()
-            candidate_id_set = {self.document_ids[i] for i in candidate_indices}
+            candidate_id_set = {self.document_ids[i] for i in candidate_indices if i < len(self.document_ids)}
 
             for i in range(indices.shape[1]):
-                doc_index = indices[0, i]
-                distance = distances[0, i]
+                doc_index = int(indices[0, i])
+                if doc_index < 0 or doc_index >= len(self.document_ids):
+                    # 越界保护：跳过非法索引
+                    continue
+                distance = float(distances[0, i])
                 doc_id = self.document_ids[doc_index]
                 if doc_id in candidate_id_set and doc_id not in seen_doc_ids:
                     doc = self.documents.get(doc_id)
@@ -361,115 +425,78 @@ class VectorDatabase:
 
     def _matches_metadata_filter(self, doc_metadata: Optional[Dict], filter_criteria: Dict) -> bool:
         """
-        检查文档元数据是否匹配过滤条件
-        
-        Args:
-            doc_metadata: 文档的元数据
-            filter_criteria: 过滤条件字典
-            
-        Returns:
-            bool: 是否匹配过滤条件
+        检查文档元数据是否匹配过滤条件。
+        支持：
+        - 范围: {field: {gte|lte|gt|lt: number}}
+        - 枚举: {field: {in: [..]}} 或 {field: [..]}
+        - 等值: {field: value} 或 {field: {eq: value}}
+        - 不等: {field: {neq|ne: value}}
+        - 特例: user_id 若文档缺失该字段，则视为“公共文档”匹配通过。
         """
         if not filter_criteria:
             return True
-        
+
+        # 文档没有任何元数据，仅当过滤条件全为空才算匹配
         if not doc_metadata:
+            # 若存在仅 user_id 的过滤，且我们认为缺省 user_id 视为公共，则也可放行
+            keys = set(filter_criteria.keys())
+            if keys == {"user_id"}:
+                return True
             return False
-            
-        for key, expected_value in filter_criteria.items():
+
+        for key, expected in filter_criteria.items():
+            # user_id 特例：无 user_id 视为公共（匹配通过）
+            if key == "user_id" and (key not in doc_metadata or doc_metadata.get(key) in (None, "")):
+                continue
+
             if key not in doc_metadata:
                 return False
-            
-            actual_value = doc_metadata[key]
-            
-            # 支持不同类型的匹配
-            if isinstance(expected_value, dict):
-                # 支持范围查询，如 {"importance": {"gte": 5}}
-                if "gte" in expected_value and actual_value < expected_value["gte"]:
+            actual = doc_metadata[key]
+
+            # 规范化比较函数
+            def _in_match(act, allowed_list):
+                try:
+                    if isinstance(allowed_list, (list, tuple, set)):
+                        if isinstance(act, (list, tuple, set)):
+                            return any(v in allowed_list for v in act)
+                        return act in allowed_list
+                except Exception:
                     return False
-                if "lte" in expected_value and actual_value > expected_value["lte"]:
-                    return False
-                if "gt" in expected_value and actual_value <= expected_value["gt"]:
-                    return False
-                if "lt" in expected_value and actual_value >= expected_value["lt"]:
-                    return False
+                return False
+
+            def _eq(a, b):
+                return a == b
+
+            def _neq(a, b):
+                return a != b
+
+            matched = True
+            if isinstance(expected, dict):
+                # 范围
+                if "gte" in expected and not (actual >= expected["gte"]):
+                    matched = False
+                if matched and "lte" in expected and not (actual <= expected["lte"]):
+                    matched = False
+                if matched and "gt" in expected and not (actual > expected["gt"]):
+                    matched = False
+                if matched and "lt" in expected and not (actual < expected["lt"]):
+                    matched = False
+                # 集合
+                if matched and "in" in expected and not _in_match(actual, expected["in"]):
+                    matched = False
+                # 等值/不等
+                if matched and "eq" in expected and not _eq(actual, expected["eq"]):
+                    matched = False
+                if matched and ("neq" in expected or "ne" in expected):
+                    ne_val = expected.get("neq", expected.get("ne"))
+                    if not _neq(actual, ne_val):
+                        matched = False
+            elif isinstance(expected, (list, tuple, set)):
+                matched = _in_match(actual, expected)
             else:
-                # 精确匹配
-                if actual_value != expected_value:
-                    return False
-                    
+                matched = _eq(actual, expected)
+
+            if not matched:
+                return False
+
         return True
-
-# 创建 FastAPI 应用
-app = FastAPI()
-db = VectorDatabase()
-
-@app.post("/add", response_model=Dict)
-async def add_document(document: Document):
-    success = db.add_document(document, save=True) # 为了简单，这里设为True，但在高频场景应为False
-    if success:
-        return {"success": True, "message": "文档已添加并立即保存和索引。"}
-    else:
-        raise HTTPException(status_code=500, detail="添加文档时出错")
-
-@app.post("/batch_add", response_model=Dict)
-async def batch_add_documents(documents: List[Document]):
-    success = db.batch_add_documents(documents)
-    if success:
-        return {"success": True, "message": f"成功批量处理 {len(documents)} 个文档。"}
-    else:
-        raise HTTPException(status_code=500, detail="批量添加文档时出错")
-
-@app.post("/search")
-async def search(request: SearchRequest):
-    top_k = request.top_k if request.top_k is not None else 5
-    tags_all = request.tags_all or request.tags
-
-    results = db.search(
-        query=request.query,
-        top_k=top_k,
-        metadata_filter=request.metadata_filter,
-        tags_all=tags_all,
-        tags_any=request.tags_any,
-        priority_tags=request.priority_tags
-    )
-
-    response_results = []
-    for res in results:
-        doc = res.get("document")
-        score = float(res.get("score", 0.0)) if res.get("score") is not None else 0.0
-        if doc is not None:
-            doc_dict = doc.model_dump() if hasattr(doc, "model_dump") else doc.dict() if hasattr(doc, "dict") else doc
-            response_results.append({"document": doc_dict, "score": score})
-
-    return {"success": True, "results": response_results}
-
-@app.post("/save", response_model=Dict)
-async def save_data():
-    try:
-        db._save_data()
-        return {"success": True, "message": "数据已成功保存到磁盘。"}
-    except Exception as e:
-        logger.error(f"手动保存数据时出错: {e}")
-        raise HTTPException(status_code=500, detail=f"保存数据失败: {e}")
-
-@app.post("/rebuild_index", response_model=Dict)
-async def rebuild_index():
-    try:
-        db.rebuild_index()
-        return {"success": True, "message": "FAISS索引已成功重建。"}
-    except Exception as e:
-        logger.error(f"手动重建索引时出错: {e}")
-        raise HTTPException(status_code=500, detail=f"重建索引失败: {e}")
-
-@app.get("/")
-async def root():
-    return {"status": "ok", "service": "knowledge_base_service"}
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-if __name__ == "__main__":
-    port = int(os.getenv("KB_PORT", "8100"))
-    uvicorn.run(app, host="0.0.0.0", port=port)

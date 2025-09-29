@@ -14,7 +14,6 @@ import os
 import uvicorn
 import time
 import faiss  # 导入faiss
-from fastapi.responses import JSONResponse  # 新增：用于明确设置 charset
 
 # 加载环境变量
 load_dotenv()
@@ -48,18 +47,18 @@ class SearchResponse(BaseModel):
 class EmbeddingAPI:
     def __init__(self):
         self.api_key = os.getenv("EMBEDDING_API_KEY")
-        # 不在初始化阶段强制要求 API Key，避免服务启动失败；在真正调用时检查
+        if not self.api_key:
+            raise ValueError("EMBEDDING_API_KEY not found in environment variables")
+        
         self.model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
         self.api_url = "https://api.siliconflow.cn/v1/embeddings"
-        # 仅当提供了 key 时才设置 Authorization 头
+        self.api_key = os.getenv("EMBEDDING_API_KEY", "sk-sgrrueslsskswlfcrefyqyeuffunfxjswmmzdicdtgksqqxr")
         self.headers = {
-            **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
-            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
         }
     
     def create_embedding(self, text: str, encoding_format: str = "float") -> List[float]:
-        if not self.api_key:
-            raise ValueError("EMBEDDING_API_KEY not set; cannot create embeddings. Set it in .env or environment.")
         try:
             response = requests.post(
                 self.api_url,
@@ -285,9 +284,6 @@ class VectorDatabase:
     def rebuild_all_vectors(self):
         """为当前所有文档重建向量，确保与文档一一对应。"""
         try:
-            if not self.embedding_api.api_key:
-                logger.warning("跳过全量重建向量：未设置 EMBEDDING_API_KEY。")
-                return False
             logger.info(f"开始为 {len(self.document_ids)} 个文档全量重建向量...")
             new_vectors = []
             for doc_id in self.document_ids:
@@ -428,78 +424,130 @@ class VectorDatabase:
 
     def _matches_metadata_filter(self, doc_metadata: Optional[Dict], filter_criteria: Dict) -> bool:
         """
-        检查文档元数据是否匹配过滤条件。
-        支持：
-        - 范围: {field: {gte|lte|gt|lt: number}}
-        - 枚举: {field: {in: [..]}} 或 {field: [..]}
-        - 等值: {field: value} 或 {field: {eq: value}}
-        - 不等: {field: {neq|ne: value}}
-        - 特例: user_id 若文档缺失该字段，则视为“公共文档”匹配通过。
+        检查文档元数据是否匹配过滤条件
+        
+        Args:
+            doc_metadata: 文档的元数据
+            filter_criteria: 过滤条件字典
+            
+        Returns:
+            bool: 是否匹配过滤条件
         """
         if not filter_criteria:
             return True
-
-        # 文档没有任何元数据，仅当过滤条件全为空才算匹配
+        
         if not doc_metadata:
-            # 若存在仅 user_id 的过滤，且我们认为缺省 user_id 视为公共，则也可放行
-            keys = set(filter_criteria.keys())
-            if keys == {"user_id"}:
-                return True
             return False
-
-        for key, expected in filter_criteria.items():
-            # user_id 特例：无 user_id 视为公共（匹配通过）
-            if key == "user_id" and (key not in doc_metadata or doc_metadata.get(key) in (None, "")):
-                continue
-
+            
+        for key, expected_value in filter_criteria.items():
             if key not in doc_metadata:
                 return False
-            actual = doc_metadata[key]
-
-            # 规范化比较函数
-            def _in_match(act, allowed_list):
-                try:
-                    if isinstance(allowed_list, (list, tuple, set)):
-                        if isinstance(act, (list, tuple, set)):
-                            return any(v in allowed_list for v in act)
-                        return act in allowed_list
-                except Exception:
+            
+            actual_value = doc_metadata[key]
+            
+            # 支持不同类型的匹配
+            if isinstance(expected_value, dict):
+                # 支持范围查询，如 {"importance": {"gte": 5}}
+                if "gte" in expected_value and actual_value < expected_value["gte"]:
                     return False
-                return False
-
-            def _eq(a, b):
-                return a == b
-
-            def _neq(a, b):
-                return a != b
-
-            matched = True
-            if isinstance(expected, dict):
-                # 范围
-                if "gte" in expected and not (actual >= expected["gte"]):
-                    matched = False
-                if matched and "lte" in expected and not (actual <= expected["lte"]):
-                    matched = False
-                if matched and "gt" in expected and not (actual > expected["gt"]):
-                    matched = False
-                if matched and "lt" in expected and not (actual < expected["lt"]):
-                    matched = False
-                # 集合
-                if matched and "in" in expected and not _in_match(actual, expected["in"]):
-                    matched = False
-                # 等值/不等
-                if matched and "eq" in expected and not _eq(actual, expected["eq"]):
-                    matched = False
-                if matched and ("neq" in expected or "ne" in expected):
-                    ne_val = expected.get("neq", expected.get("ne"))
-                    if not _neq(actual, ne_val):
-                        matched = False
-            elif isinstance(expected, (list, tuple, set)):
-                matched = _in_match(actual, expected)
+                if "lte" in expected_value and actual_value > expected_value["lte"]:
+                    return False
+                if "gt" in expected_value and actual_value <= expected_value["gt"]:
+                    return False
+                if "lt" in expected_value and actual_value >= expected_value["lt"]:
+                    return False
             else:
-                matched = _eq(actual, expected)
-
-            if not matched:
-                return False
-
+                # 精确匹配
+                if actual_value != expected_value:
+                    return False
+                    
         return True
+
+# 创建 FastAPI 应用
+app = FastAPI()
+db = VectorDatabase()
+
+@app.post("/add", response_model=Dict)
+async def add_document(document: Document):
+    success = db.add_document(document, save=True) # 为了简单，这里设为True，但在高频场景应为False
+    if success:
+        return {"success": True, "message": "文档已添加并立即保存和索引。"}
+    else:
+        raise HTTPException(status_code=500, detail="添加文档时出错")
+
+@app.post("/batch_add", response_model=Dict)
+async def batch_add_documents(documents: List[Document]):
+    success = db.batch_add_documents(documents)
+    if success:
+        return {"success": True, "message": f"成功批量处理 {len(documents)} 个文档。"}
+    else:
+        raise HTTPException(status_code=500, detail="批量添加文档时出错")
+
+@app.post("/search")
+async def search(request: SearchRequest):
+    top_k = request.top_k if request.top_k is not None else 5
+    tags_all = request.tags_all or request.tags
+
+    results = db.search(
+        query=request.query,
+        top_k=top_k,
+        metadata_filter=request.metadata_filter,
+        tags_all=tags_all,
+        tags_any=request.tags_any,
+        priority_tags=request.priority_tags
+    )
+
+    response_results = []
+    for res in results:
+        doc = res.get("document")
+        score = float(res.get("score", 0.0)) if res.get("score") is not None else 0.0
+        if doc is not None:
+            doc_dict = doc.model_dump() if hasattr(doc, "model_dump") else doc.dict() if hasattr(doc, "dict") else doc
+            response_results.append({"document": doc_dict, "score": score})
+
+    return {"success": True, "results": response_results}
+
+@app.post("/save", response_model=Dict)
+async def save_data():
+    try:
+        db._save_data()
+        return {"success": True, "message": "数据已成功保存到磁盘。"}
+    except Exception as e:
+        logger.error(f"手动保存数据时出错: {e}")
+        raise HTTPException(status_code=500, detail=f"保存数据失败: {e}")
+
+@app.post("/rebuild_index", response_model=Dict)
+async def rebuild_index():
+    try:
+        db.rebuild_index()
+        return {"success": True, "message": "FAISS索引已成功重建。"}
+    except Exception as e:
+        logger.error(f"手动重建索引时出错: {e}")
+        raise HTTPException(status_code=500, detail=f"重建索引失败: {e}")
+
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "knowledge_base_service"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+@app.get("/stats")
+async def stats():
+    try:
+        return {
+            "vectors": len(db.vectors),
+            "documents": len(db.documents),
+            "doc_ids": len(db.document_ids),
+            "index_ntotal": db.index.ntotal if db.index is not None else 0,
+            "mismatch": len(db.vectors) != len(db.documents)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/rebuild_all_vectors", response_model=Dict)
+async def rebuild_all_vectors():
+    ok = db.rebuild_all_vectors()
+    if ok:
+        return {"success": True, "message": "已为所有文档重建向量并重建索引。"}

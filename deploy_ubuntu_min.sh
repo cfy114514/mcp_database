@@ -22,6 +22,9 @@ VENV_DIR="$PROJECT_ROOT/.venv"
 PY="$VENV_DIR/bin/python"
 NODE_CMD="node"
 
+# 默认不启动人设服务；如需启用：在命令前加 ENABLE_PERSONA=1
+ENABLE_PERSONA="${ENABLE_PERSONA:-0}"
+
 MEM_NAME="记忆库工具"
 VEC_NAME="向量数据库工具"
 PER_NAME="角色人设服务"
@@ -102,7 +105,9 @@ install_all() {
   ensure_dirs
   create_env_file
   install_python
-  install_node_optional
+  if [[ "$ENABLE_PERSONA" == "1" ]]; then
+    install_node_optional
+  fi
   warn_api_key
   echo "[OK] 依赖安装完成"
 }
@@ -161,7 +166,9 @@ start_all() {
   ensure_dirs
   start_one_py_service "$MEM_NAME" "$MEM_PORT" "$MEM_PID_FILE" "$MEM_LOG"
   start_one_py_service "$VEC_NAME" "$VEC_PORT" "$VEC_PID_FILE" "$VEC_LOG"
-  start_persona || true
+  if [[ "$ENABLE_PERSONA" == "1" ]]; then
+    start_persona || true
+  fi
 }
 
 stop_one() { # name pid_file
@@ -187,7 +194,9 @@ stop_one() { # name pid_file
 stop_all() {
   stop_one "$MEM_NAME" "$MEM_PID_FILE"
   stop_one "$VEC_NAME" "$VEC_PID_FILE"
-  stop_one "$PER_NAME" "$PER_PID_FILE"
+  if [[ "$ENABLE_PERSONA" == "1" ]]; then
+    stop_one "$PER_NAME" "$PER_PID_FILE"
+  fi
 }
 
 status_one() { # name port pid_file log
@@ -209,12 +218,14 @@ status_one() { # name port pid_file log
 status_all() {
   status_one "$MEM_NAME" "$MEM_PORT" "$MEM_PID_FILE" "$MEM_LOG"
   status_one "$VEC_NAME" "$VEC_PORT" "$VEC_PID_FILE" "$VEC_LOG"
-  # persona 无 HTTP 健康接口，端口设 0
-  local per_pid="-"; [[ -f "$PER_PID_FILE" ]] && per_pid=$(cat "$PER_PID_FILE" 2>/dev/null || echo -)
-  if [[ "$per_pid" != "-" ]] && is_running_pid "$per_pid"; then
-    echo "[RUNNING] $PER_NAME  PID=$per_pid  LOG=$PER_LOG"
-  else
-    echo "[STOPPED] $PER_NAME  LOG=$PER_LOG"
+  if [[ "$ENABLE_PERSONA" == "1" ]]; then
+    # persona 无 HTTP 健康接口，端口设 0
+    local per_pid="-"; [[ -f "$PER_PID_FILE" ]] && per_pid=$(cat "$PER_PID_FILE" 2>/dev/null || echo -)
+    if [[ "$per_pid" != "-" ]] && is_running_pid "$per_pid"; then
+      echo "[RUNNING] $PER_NAME  PID=$per_pid  LOG=$PER_LOG"
+    else
+      echo "[STOPPED] $PER_NAME  LOG=$PER_LOG"
+    fi
   fi
 }
 
@@ -222,7 +233,9 @@ show_logs_hint() {
   echo "日志路径："
   echo "  $MEM_NAME -> $MEM_LOG"
   echo "  $VEC_NAME -> $VEC_LOG"
-  echo "  $PER_NAME -> $PER_LOG"
+  if [[ "$ENABLE_PERSONA" == "1" ]]; then
+    echo "  $PER_NAME -> $PER_LOG"
+  fi
 }
 
 case "${1:-}" in

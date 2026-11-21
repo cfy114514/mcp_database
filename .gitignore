@@ -21,3 +21,6 @@ data/*.npy
 indices/
 logs/memory_library.log
 logs/vector_database.log
+
+# Local environment configuration
+/.env
